@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlmodel import Session
+from typing import Optional, List
 
 from .deps import get_current_user
 from ..models.user import User
@@ -12,15 +13,15 @@ router = APIRouter(prefix="/coach", tags=["coach"])
 
 class AdviceRequest(BaseModel):
     goal: str
-    context: str | None = None
-    top_n: int | None = None
+    context: Optional[str] = None
+    top_n: Optional[int] = None
 
 class AdviceItem(BaseModel):
     text: str
     score: float
 
 class AdviceResponse(BaseModel):
-    advices: list[AdviceItem]
+    advices: List[AdviceItem]
     model: str
 
 @router.post("/advice", response_model=AdviceResponse)

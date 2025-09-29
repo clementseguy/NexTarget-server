@@ -11,6 +11,7 @@ from typing import List, Dict
 import re
 
 from .mistral import mistral_completion
+from typing import Optional
 
 PROMPT_TEMPLATE = """Tu es un coach pragmatique.
 Objectif utilisateur: {goal}
@@ -23,11 +24,11 @@ Format strict:
 3. ...
 """.strip()
 
-def build_prompt(goal: str, context: str | None) -> str:
+def build_prompt(goal: str, context: Optional[str]) -> str:
     ctx = context.strip() if context else "(aucun)"
     return PROMPT_TEMPLATE.format(goal=goal.strip(), context=ctx)
 
-async def generate_advices(goal: str, context: str | None, user_id: str):
+async def generate_advices(goal: str, context: Optional[str], user_id: str):
     prompt = build_prompt(goal, context)
     completion, model = await mistral_completion(prompt, user_id=user_id)
     advices = parse_advices(completion)
