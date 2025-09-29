@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import get_settings
 from .services.database import init_db
-from .api import auth, users, ai
+from .api import auth, users, ai, coach
 
 settings = get_settings()
 
@@ -29,3 +29,4 @@ async def health():
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(ai.router)
+app.include_router(coach.router)
