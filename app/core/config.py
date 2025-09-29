@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     mistral_model: str = "mistral-small-latest"
     mistral_timeout_seconds: int = 30
 
+    # Google OAuth
+    google_client_id: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_ID")
+    google_client_secret: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_SECRET")
+    google_redirect_uri: Optional[str] = Field(default=None, env="GOOGLE_REDIRECT_URI")
+
     class Config:
         env_file = ".env"
         case_sensitive = False
