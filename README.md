@@ -4,7 +4,7 @@ Backend léger pour application mobile : FastAPI + SQLite + JWT + Mistral (proxy
 
 ## Fonctionnalités
 - Authentification locale (email / mot de passe, hash bcrypt)
-- Provider extensible (Google en cours d'intégration – placeholders présents)
+- Providers OAuth externes : Google & Facebook (implémentés v0.1 basique)
 - JWT bearer tokens (access tokens)
 - Endpoints protégés (`/users/me`, `/ai/completions`, `/coach/advice`)
 - Proxy Mistral centralisé (latence, contrôle taille prompt, rate limit naïf)
@@ -28,8 +28,10 @@ Auth :
 - POST /auth/register (provider=local|google) – password requis si local
 - POST /auth/login (provider=local)
 - GET /users/me
-- GET /auth/google/start (placeholder)
-- GET /auth/google/callback (placeholder)
+- GET /auth/google/start
+- GET /auth/google/callback
+- GET /auth/facebook/start
+- GET /auth/facebook/callback
 
 IA :
 - POST /ai/completions (GenAI via Mistral)
@@ -88,17 +90,33 @@ En cours : Documentation, intégration réelle Google OAuth.
 - Passage Postgres + migrations (Alembic)
 - Observabilité (metrics Prometheus)
 
-## Intégration Google OAuth (plan)
-1. /auth/google/start : génère `state` + `nonce`, redirige vers Google
-2. /auth/google/callback : échange `code` -> tokens via `google.oauth2` + vérification id_token (aud, iss, exp)
-3. Création user (provider=google) si inconnu (password nul)
-4. Émission JWT interne
+## Intégrations OAuth
+### Google
+Flux:
+1. /auth/google/start : `state` + `nonce` -> URL consent
+2. /auth/google/callback : échange code -> tokens (Google), vérifie id_token (aud, iss, exp)
+3. Upsert user provider=google (password None)
+4. Retour JWT interne
 
-Variables d'environnement à prévoir :
+Env :
 ```
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_REDIRECT_URI=https://votre-domaine/auth/google/callback
+```
+
+### Facebook
+Flux:
+1. /auth/facebook/start : génère `state`, URL consent (scope email)
+2. /auth/facebook/callback : échange code -> access_token, GET /me (id,email)
+3. Upsert user provider=facebook (email fallback si non fourni)
+4. Retour JWT interne
+
+Env :
+```
+FACEBOOK_CLIENT_ID=...
+FACEBOOK_CLIENT_SECRET=...
+FACEBOOK_REDIRECT_URI=https://votre-domaine/auth/facebook/callback
 ```
 
 ## Architecture rapide

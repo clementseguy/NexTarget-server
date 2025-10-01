@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     google_client_secret: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_SECRET")
     google_redirect_uri: Optional[str] = Field(default=None, env="GOOGLE_REDIRECT_URI")
 
+    # Facebook OAuth
+    facebook_client_id: Optional[str] = Field(default=None, env="FACEBOOK_CLIENT_ID")
+    facebook_client_secret: Optional[str] = Field(default=None, env="FACEBOOK_CLIENT_SECRET")
+    facebook_redirect_uri: Optional[str] = Field(default=None, env="FACEBOOK_REDIRECT_URI")
+
     class Config:
         env_file = ".env"
         case_sensitive = False

@@ -65,9 +65,19 @@ GOOGLE_AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 GOOGLE_SCOPES = ["openid", "email", "profile"]
 
+# Facebook
+FACEBOOK_AUTH_ENDPOINT = "https://www.facebook.com/v18.0/dialog/oauth"
+FACEBOOK_TOKEN_ENDPOINT = "https://graph.facebook.com/v18.0/oauth/access_token"
+FACEBOOK_USERINFO_ENDPOINT = "https://graph.facebook.com/me"
+FACEBOOK_SCOPES = ["email"]
+
 def _assert_google_config():
     if not (settings.google_client_id and settings.google_client_secret and settings.google_redirect_uri):
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
+
+def _assert_facebook_config():
+    if not (settings.facebook_client_id and settings.facebook_client_secret and settings.facebook_redirect_uri):
+        raise HTTPException(status_code=500, detail="Facebook OAuth not configured")
 
 @router.get("/google/start")
 def google_start(session_nonce: str = Query(None, description="Opaque value from client to bind session")):
@@ -130,6 +140,73 @@ async def google_callback(code: str, state: str, session: Session = Depends(get_
     user = session.exec(select(User).where(User.email == email, User.provider == "google")).first()
     if not user:
         user = User(email=email, provider="google", hashed_password=None)
+        session.add(user)
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to create user")
+        session.refresh(user)
+
+    jwt_token = create_access_token(sub=user.id, expires_delta=timedelta(minutes=settings.access_token_exp_minutes))
+    return {"access_token": jwt_token, "token_type": "bearer", "email": user.email, "provider": user.provider}
+
+# --- Facebook OAuth flow -------------------------------------------------------
+@router.get("/facebook/start")
+def facebook_start(session_nonce: str = Query(None, description="Opaque value from client to bind session")):
+    _assert_facebook_config()
+    _prune_states()
+    state = secrets.token_urlsafe(24)
+    _oauth_states[state] = {"created": time.time(), "exp": time.time() + STATE_TTL_SECONDS, "client_nonce": session_nonce}
+    from urllib.parse import urlencode
+    params = {
+        "client_id": settings.facebook_client_id,
+        "redirect_uri": settings.facebook_redirect_uri,
+        "state": state,
+        "response_type": "code",
+        "scope": ",".join(FACEBOOK_SCOPES),
+    }
+    auth_url = f"{FACEBOOK_AUTH_ENDPOINT}?{urlencode(params)}"
+    return {"auth_url": auth_url, "state": state}
+
+@router.get("/facebook/callback")
+async def facebook_callback(code: str, state: str, session: Session = Depends(get_session)):
+    _assert_facebook_config()
+    stored = _oauth_states.get(state)
+    if not stored:
+        raise HTTPException(status_code=400, detail="Invalid or expired state")
+    _oauth_states.pop(state, None)
+
+    params = {
+        "client_id": settings.facebook_client_id,
+        "redirect_uri": settings.facebook_redirect_uri,
+        "client_secret": settings.facebook_client_secret,
+        "code": code,
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
+        token_resp = await client.get(FACEBOOK_TOKEN_ENDPOINT, params=params)
+    if token_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Facebook token exchange failed: {token_resp.text}")
+    token_payload = token_resp.json()
+    access_token_fb = token_payload.get("access_token")
+    if not access_token_fb:
+        raise HTTPException(status_code=400, detail="No access_token returned by Facebook")
+
+    # Fetch user info
+    user_params = {"fields": "id,email", "access_token": access_token_fb}
+    async with httpx.AsyncClient(timeout=15) as client:
+        user_resp = await client.get(FACEBOOK_USERINFO_ENDPOINT, params=user_params)
+    if user_resp.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch Facebook user: {user_resp.text}")
+    info = user_resp.json()
+    fb_id = info.get("id")
+    email = info.get("email") or f"fb_{fb_id}@example.local"  # fallback if email missing (user can hide email)
+    if not fb_id:
+        raise HTTPException(status_code=400, detail="Missing Facebook user id")
+
+    user = session.exec(select(User).where(User.email == email, User.provider == "facebook")).first()
+    if not user:
+        user = User(email=email, provider="facebook", hashed_password=None)
         session.add(user)
         try:
             session.commit()
