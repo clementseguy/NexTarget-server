@@ -4,7 +4,8 @@ info:
   version: 0.1.0
   description: |
     Backend léger et sécurisé pour application mobile avec:
-    - Authentification locale (JWT) et OAuth (Google, Facebook)
+    - Authentification OAuth uniquement (Google, Facebook)
+    - Pas de stockage de mots de passe
     - Gestion du profil utilisateur
   contact:
     name: NexTarget Team
@@ -42,63 +43,6 @@ paths:
                   status:
                     type: string
                     example: ok
-
-  /auth/register:
-    post:
-      summary: Enregistrer un nouvel utilisateur
-      description: |
-        Crée un compte utilisateur local ou externe.
-        - Pour `provider=local`, un mot de passe est requis (hashé avec bcrypt).
-        - Pour providers externes (google, facebook), le mot de passe est optionnel/ignoré.
-      tags:
-        - auth
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: Utilisateur créé avec succès
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserPublic'
-        '400':
-          description: Utilisateur déjà existant ou données invalides
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /auth/login:
-    post:
-      summary: Connexion utilisateur local
-      description: |
-        Authentifie un utilisateur local et retourne un JWT.
-        Pour les providers externes, utiliser les flows OAuth dédiés.
-      tags:
-        - auth
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Authentification réussie
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenResponse'
-        '401':
-          description: Identifiants invalides
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /auth/google/start:
     get:
@@ -284,50 +228,10 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        JWT Bearer token obtenu via /auth/login (local) ou /auth/{google,facebook}/callback (OAuth).
+        JWT Bearer token obtenu via /auth/{google,facebook}/callback (OAuth uniquement).
         Format: `Authorization: Bearer <token>`
 
   schemas:
-    RegisterRequest:
-      type: object
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          format: email
-          example: user@example.com
-        password:
-          type: string
-          format: password
-          example: securePass123
-          description: Requis uniquement pour provider=local
-        provider:
-          type: string
-          enum: [local, google, facebook]
-          default: local
-          example: local
-
-    LoginRequest:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-          example: user@example.com
-        password:
-          type: string
-          format: password
-          example: securePass123
-        provider:
-          type: string
-          enum: [local, google, facebook]
-          default: local
-          example: local
-
     TokenResponse:
       type: object
       properties:
@@ -374,8 +278,8 @@ components:
           example: true
         provider:
           type: string
-          enum: [local, google, facebook]
-          example: local
+          enum: [google, facebook]
+          example: google
 
     ErrorResponse:
       type: object

@@ -1,10 +1,11 @@
 # NexTarget Server
 
-Backend léger pour application mobile : FastAPI + SQLite + JWT + OAuth (Google, Facebook).
+Backend léger pour application mobile : FastAPI + SQLite + OAuth (Google, Facebook) uniquement.
 
 ## Fonctionnalités
-- Authentification locale (email / mot de passe, hash bcrypt)
-- Providers OAuth externes : Google & Facebook (implémentés v0.1)
+- **Authentification OAuth uniquement** : Google & Facebook
+- **Aucun stockage de mot de passe** : délégation complète à des IdP externes
+- **Aucune donnée personnelle sensible** : email et provider uniquement
 - JWT bearer tokens (access tokens)
 - Endpoint protégé `/users/me`
 - Base SQLite via SQLModel (migration future possible vers Postgres)
@@ -21,22 +22,26 @@ uvicorn app.main:app --reload
 Visitez http://127.0.0.1:8000/docs pour la doc interactive.
 
 ## Endpoints principaux (v0.1)
-Auth :
-- POST /auth/register (provider=local|google|facebook) – password requis si local
-- POST /auth/login (provider=local)
-- GET /users/me
+Santé :
+- GET /health
+
+Auth OAuth :
 - GET /auth/google/start
 - GET /auth/google/callback
 - GET /auth/facebook/start
 - GET /auth/facebook/callback
 
+Profil :
+- GET /users/me (JWT requis)
+
 ## Sécurité / Production
+- **Aucun stockage de mot de passe** : authentification déléguée à 100% aux IdP
+- **Données minimales** : seuls email et provider sont stockés
 - Générer une vraie clé aléatoire pour `JWT_SECRET_KEY`
 - Restreindre CORS (liste d'origines précises)
 - Activer HTTPS (terminaison TLS via reverse proxy ou plateforme)
 - Ajouter rate-limiting (ex: Traefik, nginx, ou lib python)
-- Stocker les mots de passe toujours hashés (déjà fait) ; jamais en clair
-- Logs structurés (peut ajouter `uvicorn[standard]` déjà inclus) et monitoring
+- Logs structurés et monitoring
 
 ## Déploiement minimal
 Peut tourner sur :
@@ -60,21 +65,20 @@ Exécution :
 pytest -q
 ```
 Couverture actuelle :
-- Authentification locale + providers (unicité email+provider)
+- Test basique du health endpoint
 
 Améliorations futures tests :
-- Tests d'intégration Google & Facebook OAuth (mock token endpoints)
+- Tests d'intégration Google & Facebook OAuth (mock token endpoints et id_token verification)
 
 ## Roadmap v0.1 (résumé)
-Done : Auth locale + OAuth (Google, Facebook), JWT, tests de base.
+Done : Auth OAuth uniquement (Google, Facebook), JWT, stockage minimal (email + provider).
 À venir (v0.2+) :
 - Refresh tokens / rotation
-- Politique mots de passe forts (zxcvbn ou règles dynamiques)
 - Rate limiting robuste (Redis / nginx / envoy)
-- Sécurité brute-force (compteur + backoff)
 - Logging structuré + tracing (OpenTelemetry)
 - Passage Postgres + migrations (Alembic)
 - Observabilité (metrics Prometheus)
+- Tests automatisés OAuth (mock providers)
 
 ## Intégrations OAuth
 ### Google
@@ -106,15 +110,16 @@ FACEBOOK_REDIRECT_URI=https://votre-domaine/auth/facebook/callback
 ```
 
 ## Architecture rapide
-- couche api/: routers FastAPI
-- couche models/: SQLModel ORM
-- couche schemas/: Pydantic I/O
+- couche api/: routers FastAPI (auth OAuth, users)
+- couche services/: database session management
+- couche models/: SQLModel ORM (User uniquement)
+- couche schemas/: Pydantic I/O (TokenResponse, UserPublic)
 
 ## Qualité & Sécurité
-- Hash bcrypt (cost 12)
+- Pas de stockage de mot de passe
 - Token JWT HS256 (prévoir rotation / secret fort)
 - CORS permissif en dev (restreindre en prod)
-- OAuth state validation (CSRF protection)
+- Authentification déléguée à 100% (Google, Facebook)
 
 
 ---

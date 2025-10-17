@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 
-from ..schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserPublic
+from ..schemas.auth import TokenResponse, UserPublic
 from ..models.user import User
-from ..core.security import hash_password, verify_password, create_access_token
+from ..core.security import create_access_token
 from ..services.database import get_session
 from datetime import datetime, timedelta
 import secrets
@@ -26,38 +26,6 @@ def _prune_states():
     expired = [k for k, v in _oauth_states.items() if v["exp"] < now]
     for k in expired:
         _oauth_states.pop(k, None)
-
-@router.post("/register", response_model=UserPublic, status_code=201)
-def register(payload: RegisterRequest, session: Session = Depends(get_session)):
-    # Check existing by email+provider
-    existing = session.exec(
-        select(User).where(User.email == payload.email, User.provider == payload.provider)
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="User already exists for this provider")
-
-    hashed_pw = hash_password(payload.password) if payload.provider == "local" else None
-    user = User(email=payload.email, provider=payload.provider, hashed_password=hashed_pw)
-    session.add(user)
-    try:
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise HTTPException(status_code=400, detail="Unable to create user")
-    session.refresh(user)
-    return user
-
-@router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, session: Session = Depends(get_session)):
-    if payload.provider != "local":
-        raise HTTPException(status_code=400, detail="Use external provider flow for non-local login")
-    user = session.exec(
-        select(User).where(User.email == payload.email, User.provider == "local")
-    ).first()
-    if not user or not user.hashed_password or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    token = create_access_token(sub=user.id)
-    return TokenResponse(access_token=token)
 
 
 # --- Google OAuth real flow ----------------------------------------------------
@@ -139,7 +107,7 @@ async def google_callback(code: str, state: str, session: Session = Depends(get_
     # Upsert user
     user = session.exec(select(User).where(User.email == email, User.provider == "google")).first()
     if not user:
-        user = User(email=email, provider="google", hashed_password=None)
+        user = User(email=email, provider="google")
         session.add(user)
         try:
             session.commit()
@@ -206,7 +174,7 @@ async def facebook_callback(code: str, state: str, session: Session = Depends(ge
 
     user = session.exec(select(User).where(User.email == email, User.provider == "facebook")).first()
     if not user:
-        user = User(email=email, provider="facebook", hashed_password=None)
+        user = User(email=email, provider="facebook")
         session.add(user)
         try:
             session.commit()
