@@ -1,15 +1,13 @@
 # NexTarget Server
 
-Backend léger pour application mobile : FastAPI + SQLite + JWT + Mistral (proxy) + Orchestrateur coaching.
+Backend léger pour application mobile : FastAPI + SQLite + OAuth (Google, Facebook) uniquement.
 
 ## Fonctionnalités
-- Authentification locale (email / mot de passe, hash bcrypt)
-- Providers OAuth externes : Google & Facebook (implémentés v0.1 basique)
+- **Authentification OAuth uniquement** : Google & Facebook
+- **Aucun stockage de mot de passe** : délégation complète à des IdP externes
+- **Aucune donnée personnelle sensible** : email et provider uniquement
 - JWT bearer tokens (access tokens)
-- Endpoints protégés (`/users/me`, `/ai/completions`, `/coach/advice`)
-- Proxy Mistral centralisé (latence, contrôle taille prompt, rate limit naïf)
-- Historisation interactions IA (prompts + réponses)
-- Orchestrateur de conseils (coaching) : prompt engineering simple + parsing + scoring
+- Endpoint protégé `/users/me`
 - Base SQLite via SQLModel (migration future possible vers Postgres)
 - Configuration par variables d'environnement (.env)
 
@@ -24,37 +22,113 @@ uvicorn app.main:app --reload
 Visitez http://127.0.0.1:8000/docs pour la doc interactive.
 
 ## Endpoints principaux (v0.1)
-Auth :
-- POST /auth/register (provider=local|google) – password requis si local
-- POST /auth/login (provider=local)
-- GET /users/me
+Santé :
+- GET /health
+
+Auth OAuth :
 - GET /auth/google/start
 - GET /auth/google/callback
 - GET /auth/facebook/start
 - GET /auth/facebook/callback
 
-IA :
-- POST /ai/completions (GenAI via Mistral)
-
-Coaching :
-- POST /coach/advice (génère une liste de conseils scorés)
+Profil :
+- GET /users/me (JWT requis)
 
 ## Sécurité / Production
+- **Aucun stockage de mot de passe** : authentification déléguée à 100% aux IdP
+- **Données minimales** : seuls email et provider sont stockés
 - Générer une vraie clé aléatoire pour `JWT_SECRET_KEY`
 - Restreindre CORS (liste d'origines précises)
 - Activer HTTPS (terminaison TLS via reverse proxy ou plateforme)
 - Ajouter rate-limiting (ex: Traefik, nginx, ou lib python)
-- Stocker les mots de passe toujours hashés (déjà fait) ; jamais en clair
-- Logs structurés (peut ajouter `uvicorn[standard]` déjà inclus) et monitoring
+- Logs structurés et monitoring
 
-## Déploiement minimal
-Peut tourner sur :
-- VM (1 vCPU / 512MB) : `uvicorn app.main:app --host 0.0.0.0 --port 8000`
-- Fly.io / Railway / Render / Deta : ajouter un Dockerfile ou config native.
+## Déploiement sur Render.com (Recommandé)
 
-### Exemple Docker
+### ✅ Pourquoi Render.com ?
+- **HTTPS automatique** (Let's Encrypt)
+- **Déploiement automatique** depuis GitHub
+- **Gratuit** pour petits projets (avec sleep mode)
+- **Variables d'environnement** sécurisées
+- **Logs persistants** (14 jours)
+
+### 🚀 Déploiement en 5 minutes
+
+1. **Préparer le repository**
+   ```bash
+   # Le fichier render.yaml est déjà configuré
+   git push origin main
+   ```
+
+2. **Créer le service sur Render**
+   - Aller sur [render.com](https://render.com)
+   - "New" → "Web Service"
+   - Connecter votre repository GitHub `NexTarget-server`
+   - Render détectera automatiquement `render.yaml`
+   - Cliquer "Apply" pour créer le service
+
+3. **Configurer les variables OAuth** (Dashboard Render)
+   ```
+   GOOGLE_CLIENT_ID=votre_client_id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-xxx
+   GOOGLE_REDIRECT_URI=https://votre-app.onrender.com/auth/google/callback
+   
+   FACEBOOK_CLIENT_ID=xxx
+   FACEBOOK_CLIENT_SECRET=xxx
+   FACEBOOK_REDIRECT_URI=https://votre-app.onrender.com/auth/facebook/callback
+   ```
+   
+   Note: `JWT_SECRET_KEY` est généré automatiquement par Render
+
+4. **Mettre à jour les OAuth Providers**
+   - **Google Cloud Console** → OAuth 2.0 Client IDs → Authorized redirect URIs
+     ```
+     https://votre-app.onrender.com/auth/google/callback
+     ```
+   - **Facebook App Dashboard** → Settings → Basic → Valid OAuth Redirect URIs
+     ```
+     https://votre-app.onrender.com/auth/facebook/callback
+     ```
+
+5. **Vérifier le déploiement**
+   ```bash
+   # Health check
+   curl https://votre-app.onrender.com/health
+   # Doit retourner: {"status":"ok"}
+   
+   # Documentation interactive
+   # Ouvrir: https://votre-app.onrender.com/docs
+   ```
+
+### ⚠️ Limitations Free Tier
+- **Sleep après 15min** d'inactivité (réveil en ~30s)
+- **512MB RAM**, CPU partagé
+- Suffisant pour 1-5 utilisateurs sporadiques
+
+### 📈 Upgrade Production (optionnel)
+Si besoin de plus de performance :
+- $7/mois → Service toujours actif (no sleep)
+- 1GB RAM, meilleure réactivité
+
+### 🔍 Monitoring
+Render Dashboard fournit :
+- Logs en temps réel
+- Métriques CPU/RAM
+- Historique des déploiements
+
+---
+
+## Autres options de déploiement
+
+### Déploiement manuel (VM)
+```bash
+# Sur serveur Linux
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### Déploiement Docker
 ```Dockerfile
-FROM python:3.12-slim
+FROM python:3.9-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -69,26 +143,20 @@ Exécution :
 pytest -q
 ```
 Couverture actuelle :
-- Authentification locale + providers (unicité email+provider)
-- Historisation des interactions Mistral (mockée)
-- Parsing & scoring des conseils coaching
+- Test basique du health endpoint
 
 Améliorations futures tests :
-- Tests d'erreurs (rate limit, prompt trop long)
-- Tests d'intégration Google OAuth (mock id_token)
+- Tests d'intégration Google & Facebook OAuth (mock token endpoints et id_token verification)
 
 ## Roadmap v0.1 (résumé)
-Done : Auth locale, proxy Mistral, historique IA, coaching v1, tests de base.
-En cours : Documentation, intégration réelle Google OAuth.
+Done : Auth OAuth uniquement (Google, Facebook), JWT, stockage minimal (email + provider).
 À venir (v0.2+) :
 - Refresh tokens / rotation
-- Politique mots de passe forts (zxcvbn ou règles dynamiques)
 - Rate limiting robuste (Redis / nginx / envoy)
-- Sécurité brute-force (compteur + backoff)
 - Logging structuré + tracing (OpenTelemetry)
-- Streaming des réponses Mistral / SSE
 - Passage Postgres + migrations (Alembic)
 - Observabilité (metrics Prometheus)
+- Tests automatisés OAuth (mock providers)
 
 ## Intégrations OAuth
 ### Google
@@ -120,16 +188,16 @@ FACEBOOK_REDIRECT_URI=https://votre-domaine/auth/facebook/callback
 ```
 
 ## Architecture rapide
-- couche api/: routers FastAPI
-- couche services/: logique métier & intégrations (Mistral, coaching)
-- couche models/: SQLModel ORM
-- couche schemas/: Pydantic I/O
+- couche api/: routers FastAPI (auth OAuth, users)
+- couche services/: database session management
+- couche models/: SQLModel ORM (User uniquement)
+- couche schemas/: Pydantic I/O (TokenResponse, UserPublic)
 
 ## Qualité & Sécurité
-- Hash bcrypt (cost 12)
+- Pas de stockage de mot de passe
 - Token JWT HS256 (prévoir rotation / secret fort)
 - CORS permissif en dev (restreindre en prod)
-- Rate limit mémoire (placeholder) -> à remplacer
+- Authentification déléguée à 100% (Google, Facebook)
 
 
 ---
