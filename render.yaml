@@ -5,6 +5,7 @@ services:
   - type: web
     name: nextarget-api
     runtime: python
+    pythonVersion: 3.11.9  # Force Python 3.11 pour Pydantic v1 compatibility
     region: frankfurt  # Ou oregon/singapore selon localisation
     plan: free
     branch: main
@@ -12,8 +13,6 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
       - key: JWT_SECRET_KEY
         generateValue: true  # Génère automatiquement un secret sécurisé
       - key: ACCESS_TOKEN_EXP_MINUTES
