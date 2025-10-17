@@ -1,0 +1,40 @@
+# Render.com Blueprint Configuration
+# Documentation: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: nextarget-api
+    runtime: python
+    region: frankfurt  # Ou oregon/singapore selon localisation
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9
+      - key: JWT_SECRET_KEY
+        generateValue: true  # Génère automatiquement un secret sécurisé
+      - key: ACCESS_TOKEN_EXP_MINUTES
+        value: 60
+      - key: DATABASE_URL
+        value: sqlite:///./data.db
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      # Google OAuth - À configurer manuellement dans Render Dashboard
+      - key: GOOGLE_CLIENT_ID
+        sync: false  # Doit être défini manuellement
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      # Facebook OAuth - À configurer manuellement dans Render Dashboard
+      - key: FACEBOOK_CLIENT_ID
+        sync: false
+      - key: FACEBOOK_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_REDIRECT_URI
+        sync: false

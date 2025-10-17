@@ -14,8 +14,8 @@ info:
 servers:
   - url: http://localhost:8000
     description: Développement local
-  - url: https://api.nextarget.example.com
-    description: Production
+  - url: https://nextarget-api.onrender.com
+    description: Production (Render.com)
 
 tags:
   - name: health

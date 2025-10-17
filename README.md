@@ -43,14 +43,92 @@ Profil :
 - Ajouter rate-limiting (ex: Traefik, nginx, ou lib python)
 - Logs structurés et monitoring
 
-## Déploiement minimal
-Peut tourner sur :
-- VM (1 vCPU / 512MB) : `uvicorn app.main:app --host 0.0.0.0 --port 8000`
-- Fly.io / Railway / Render / Deta : ajouter un Dockerfile ou config native.
+## Déploiement sur Render.com (Recommandé)
 
-### Exemple Docker
+### ✅ Pourquoi Render.com ?
+- **HTTPS automatique** (Let's Encrypt)
+- **Déploiement automatique** depuis GitHub
+- **Gratuit** pour petits projets (avec sleep mode)
+- **Variables d'environnement** sécurisées
+- **Logs persistants** (14 jours)
+
+### 🚀 Déploiement en 5 minutes
+
+1. **Préparer le repository**
+   ```bash
+   # Le fichier render.yaml est déjà configuré
+   git push origin main
+   ```
+
+2. **Créer le service sur Render**
+   - Aller sur [render.com](https://render.com)
+   - "New" → "Web Service"
+   - Connecter votre repository GitHub `NexTarget-server`
+   - Render détectera automatiquement `render.yaml`
+   - Cliquer "Apply" pour créer le service
+
+3. **Configurer les variables OAuth** (Dashboard Render)
+   ```
+   GOOGLE_CLIENT_ID=votre_client_id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-xxx
+   GOOGLE_REDIRECT_URI=https://votre-app.onrender.com/auth/google/callback
+   
+   FACEBOOK_CLIENT_ID=xxx
+   FACEBOOK_CLIENT_SECRET=xxx
+   FACEBOOK_REDIRECT_URI=https://votre-app.onrender.com/auth/facebook/callback
+   ```
+   
+   Note: `JWT_SECRET_KEY` est généré automatiquement par Render
+
+4. **Mettre à jour les OAuth Providers**
+   - **Google Cloud Console** → OAuth 2.0 Client IDs → Authorized redirect URIs
+     ```
+     https://votre-app.onrender.com/auth/google/callback
+     ```
+   - **Facebook App Dashboard** → Settings → Basic → Valid OAuth Redirect URIs
+     ```
+     https://votre-app.onrender.com/auth/facebook/callback
+     ```
+
+5. **Vérifier le déploiement**
+   ```bash
+   # Health check
+   curl https://votre-app.onrender.com/health
+   # Doit retourner: {"status":"ok"}
+   
+   # Documentation interactive
+   # Ouvrir: https://votre-app.onrender.com/docs
+   ```
+
+### ⚠️ Limitations Free Tier
+- **Sleep après 15min** d'inactivité (réveil en ~30s)
+- **512MB RAM**, CPU partagé
+- Suffisant pour 1-5 utilisateurs sporadiques
+
+### 📈 Upgrade Production (optionnel)
+Si besoin de plus de performance :
+- $7/mois → Service toujours actif (no sleep)
+- 1GB RAM, meilleure réactivité
+
+### 🔍 Monitoring
+Render Dashboard fournit :
+- Logs en temps réel
+- Métriques CPU/RAM
+- Historique des déploiements
+
+---
+
+## Autres options de déploiement
+
+### Déploiement manuel (VM)
+```bash
+# Sur serveur Linux
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### Déploiement Docker
 ```Dockerfile
-FROM python:3.12-slim
+FROM python:3.9-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
