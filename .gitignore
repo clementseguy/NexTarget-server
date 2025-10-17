@@ -8,5 +8,6 @@ __pycache__/
 .idea/
 .vscode/
 venv/
+.venv/
 .env.*
 data.db
