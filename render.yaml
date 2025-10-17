@@ -13,7 +13,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9
+        value: 3.11.9
       - key: JWT_SECRET_KEY
         generateValue: true  # Génère automatiquement un secret sécurisé
       - key: ACCESS_TOKEN_EXP_MINUTES
