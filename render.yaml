@@ -5,12 +5,10 @@ services:
   - type: web
     name: nextarget-api
     runtime: python
-    pythonVersion: 3.11.9  # Force Python 3.11 pour Pydantic v1 compatibility
-    region: frankfurt  # Ou oregon/singapore selon localisation
+    region: frankfurt
     plan: free
     branch: main
     buildCommand: pip install -r requirements.txt
-    startCommand: python start.py
     healthCheckPath: /health
     envVars:
       - key: JWT_SECRET_KEY
