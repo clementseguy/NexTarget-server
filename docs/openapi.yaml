@@ -1,0 +1,536 @@
+openapi: 3.1.0
+info:
+  title: NexTarget Backend API
+  version: 0.1.0
+  description: |
+    Backend léger et sécurisé pour application mobile avec:
+    - Authentification locale (JWT) et OAuth (Google, Facebook)
+    - Proxy Mistral AI pour complétion de texte
+    - Orchestrateur de coaching personnalisé
+    - Persistance minimale des interactions
+  contact:
+    name: NexTarget Team
+    email: contact@nextarget.local
+
+servers:
+  - url: http://localhost:8000
+    description: Développement local
+  - url: https://api.nextarget.example.com
+    description: Production
+
+tags:
+  - name: health
+    description: Endpoints de santé du service
+  - name: auth
+    description: Authentification et gestion OAuth
+  - name: users
+    description: Gestion du profil utilisateur
+  - name: ai
+    description: Proxy Mistral AI pour complétion de texte
+  - name: coach
+    description: Génération de conseils coaching personnalisés
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Vérifie que le serveur est opérationnel
+      tags:
+        - health
+      responses:
+        '200':
+          description: Service OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/register:
+    post:
+      summary: Enregistrer un nouvel utilisateur
+      description: |
+        Crée un compte utilisateur local ou externe.
+        - Pour `provider=local`, un mot de passe est requis (hashé avec bcrypt).
+        - Pour providers externes (google, facebook), le mot de passe est optionnel/ignoré.
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Utilisateur créé avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublic'
+        '400':
+          description: Utilisateur déjà existant ou données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: Connexion utilisateur local
+      description: |
+        Authentifie un utilisateur local et retourne un JWT.
+        Pour les providers externes, utiliser les flows OAuth dédiés.
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentification réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Identifiants invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/google/start:
+    get:
+      summary: Initier le flux OAuth Google
+      description: |
+        Génère une URL d'autorisation Google avec state et nonce sécurisés.
+        Le client doit rediriger l'utilisateur vers `auth_url` retourné.
+      tags:
+        - auth
+      parameters:
+        - name: session_nonce
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Valeur opaque fournie par le client pour lier la session
+      responses:
+        '200':
+          description: URL d'autorisation Google
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  auth_url:
+                    type: string
+                    example: https://accounts.google.com/o/oauth2/v2/auth?client_id=...
+                  state:
+                    type: string
+                    example: abc123xyz
+        '500':
+          description: Configuration OAuth Google manquante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/google/callback:
+    get:
+      summary: Callback OAuth Google
+      description: |
+        Échange le code d'autorisation contre un id_token, vérifie la signature,
+        upsert l'utilisateur dans la base, et retourne un JWT.
+      tags:
+        - auth
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Code d'autorisation retourné par Google
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: State pour validation CSRF
+      responses:
+        '200':
+          description: Authentification Google réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        '400':
+          description: Code ou state invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur lors de la création utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/facebook/start:
+    get:
+      summary: Initier le flux OAuth Facebook
+      description: |
+        Génère une URL d'autorisation Facebook avec state sécurisé.
+        Le client doit rediriger l'utilisateur vers `auth_url` retourné.
+      tags:
+        - auth
+      parameters:
+        - name: session_nonce
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Valeur opaque fournie par le client pour lier la session
+      responses:
+        '200':
+          description: URL d'autorisation Facebook
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  auth_url:
+                    type: string
+                    example: https://www.facebook.com/v18.0/dialog/oauth?client_id=...
+                  state:
+                    type: string
+                    example: xyz789abc
+        '500':
+          description: Configuration OAuth Facebook manquante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/facebook/callback:
+    get:
+      summary: Callback OAuth Facebook
+      description: |
+        Échange le code d'autorisation contre un access_token, récupère les infos utilisateur (/me),
+        upsert l'utilisateur, et retourne un JWT.
+        Si l'email est manquant (utilisateur a refusé), utilise un email de fallback.
+      tags:
+        - auth
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Code d'autorisation retourné par Facebook
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: State pour validation CSRF
+      responses:
+        '200':
+          description: Authentification Facebook réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthTokenResponse'
+        '400':
+          description: Code ou state invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur lors de la création utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me:
+    get:
+      summary: Obtenir le profil utilisateur courant
+      description: Retourne les informations de l'utilisateur authentifié via JWT
+      tags:
+        - users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profil utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublic'
+        '401':
+          description: Token manquant ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ai/completions:
+    post:
+      summary: Générer une complétion de texte via Mistral AI
+      description: |
+        Envoie un prompt à Mistral AI et retourne la complétion.
+        L'interaction (prompt utilisateur + réponse assistant) est persistée.
+        Rate limiting: 5 requêtes par minute par utilisateur (in-memory, dev only).
+      tags:
+        - ai
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionRequest'
+      responses:
+        '200':
+          description: Complétion générée avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletionResponse'
+        '401':
+          description: Non authentifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit dépassé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur Mistral API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /coach/advice:
+    post:
+      summary: Générer des conseils de coaching personnalisés
+      description: |
+        Construit un prompt structuré basé sur l'objectif et le contexte,
+        appelle Mistral, parse les conseils (lignes numérotées/bullet),
+        applique un scoring heuristique, et retourne les conseils triés.
+        Option top_n pour limiter le nombre de conseils retournés.
+      tags:
+        - coach
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdviceRequest'
+      responses:
+        '200':
+          description: Conseils générés avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdviceResponse'
+        '401':
+          description: Non authentifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Erreur lors de la génération des conseils
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token obtenu via /auth/login (local) ou /auth/{google,facebook}/callback (OAuth).
+        Format: `Authorization: Bearer <token>`
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: securePass123
+          description: Requis uniquement pour provider=local
+        provider:
+          type: string
+          enum: [local, google, facebook]
+          default: local
+          example: local
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          format: password
+          example: securePass123
+        provider:
+          type: string
+          enum: [local, google, facebook]
+          default: local
+          example: local
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          default: bearer
+          example: bearer
+
+    OAuthTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          default: bearer
+          example: bearer
+        email:
+          type: string
+          format: email
+          example: user@gmail.com
+        provider:
+          type: string
+          enum: [google, facebook]
+          example: google
+
+    UserPublic:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        is_active:
+          type: boolean
+          example: true
+        provider:
+          type: string
+          enum: [local, google, facebook]
+          example: local
+
+    CompletionRequest:
+      type: object
+      required:
+        - prompt
+      properties:
+        prompt:
+          type: string
+          example: "Explique-moi la stratégie de pricing d'une startup SaaS"
+          description: Prompt utilisateur envoyé à Mistral
+
+    CompletionResponse:
+      type: object
+      properties:
+        completion:
+          type: string
+          example: "La stratégie de pricing d'une startup SaaS repose sur..."
+
+    AdviceRequest:
+      type: object
+      required:
+        - goal
+      properties:
+        goal:
+          type: string
+          example: "Améliorer ma productivité quotidienne"
+          description: Objectif principal de l'utilisateur
+        context:
+          type: string
+          nullable: true
+          example: "Je suis développeur freelance, je travaille de chez moi"
+          description: Contexte additionnel pour personnaliser les conseils
+        top_n:
+          type: integer
+          nullable: true
+          example: 5
+          description: Nombre maximum de conseils à retourner (après scoring)
+
+    AdviceItem:
+      type: object
+      properties:
+        text:
+          type: string
+          example: "Utilise la technique Pomodoro pour structurer ta journée"
+        score:
+          type: number
+          format: float
+          example: 0.85
+          description: Score heuristique (longueur + position)
+
+    AdviceResponse:
+      type: object
+      properties:
+        advices:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdviceItem'
+        model:
+          type: string
+          example: mistral-large-latest
+          description: Modèle Mistral utilisé pour générer les conseils
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Invalid credentials"
+
+security:
+  - BearerAuth: []
