@@ -5,9 +5,7 @@ info:
   description: |
     Backend léger et sécurisé pour application mobile avec:
     - Authentification locale (JWT) et OAuth (Google, Facebook)
-    - Proxy Mistral AI pour complétion de texte
-    - Orchestrateur de coaching personnalisé
-    - Persistance minimale des interactions
+    - Gestion du profil utilisateur
   contact:
     name: NexTarget Team
     email: contact@nextarget.local
@@ -25,10 +23,6 @@ tags:
     description: Authentification et gestion OAuth
   - name: users
     description: Gestion du profil utilisateur
-  - name: ai
-    description: Proxy Mistral AI pour complétion de texte
-  - name: coach
-    description: Génération de conseils coaching personnalisés
 
 paths:
   /health:
@@ -283,87 +277,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /ai/completions:
-    post:
-      summary: Générer une complétion de texte via Mistral AI
-      description: |
-        Envoie un prompt à Mistral AI et retourne la complétion.
-        L'interaction (prompt utilisateur + réponse assistant) est persistée.
-        Rate limiting: 5 requêtes par minute par utilisateur (in-memory, dev only).
-      tags:
-        - ai
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CompletionRequest'
-      responses:
-        '200':
-          description: Complétion générée avec succès
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CompletionResponse'
-        '401':
-          description: Non authentifié
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Rate limit dépassé
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Erreur Mistral API
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /coach/advice:
-    post:
-      summary: Générer des conseils de coaching personnalisés
-      description: |
-        Construit un prompt structuré basé sur l'objectif et le contexte,
-        appelle Mistral, parse les conseils (lignes numérotées/bullet),
-        applique un scoring heuristique, et retourne les conseils triés.
-        Option top_n pour limiter le nombre de conseils retournés.
-      tags:
-        - coach
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdviceRequest'
-      responses:
-        '200':
-          description: Conseils générés avec succès
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdviceResponse'
-        '401':
-          description: Non authentifié
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Erreur lors de la génération des conseils
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
 components:
   securitySchemes:
     BearerAuth:
@@ -463,67 +376,6 @@ components:
           type: string
           enum: [local, google, facebook]
           example: local
-
-    CompletionRequest:
-      type: object
-      required:
-        - prompt
-      properties:
-        prompt:
-          type: string
-          example: "Explique-moi la stratégie de pricing d'une startup SaaS"
-          description: Prompt utilisateur envoyé à Mistral
-
-    CompletionResponse:
-      type: object
-      properties:
-        completion:
-          type: string
-          example: "La stratégie de pricing d'une startup SaaS repose sur..."
-
-    AdviceRequest:
-      type: object
-      required:
-        - goal
-      properties:
-        goal:
-          type: string
-          example: "Améliorer ma productivité quotidienne"
-          description: Objectif principal de l'utilisateur
-        context:
-          type: string
-          nullable: true
-          example: "Je suis développeur freelance, je travaille de chez moi"
-          description: Contexte additionnel pour personnaliser les conseils
-        top_n:
-          type: integer
-          nullable: true
-          example: 5
-          description: Nombre maximum de conseils à retourner (après scoring)
-
-    AdviceItem:
-      type: object
-      properties:
-        text:
-          type: string
-          example: "Utilise la technique Pomodoro pour structurer ta journée"
-        score:
-          type: number
-          format: float
-          example: 0.85
-          description: Score heuristique (longueur + position)
-
-    AdviceResponse:
-      type: object
-      properties:
-        advices:
-          type: array
-          items:
-            $ref: '#/components/schemas/AdviceItem'
-        model:
-          type: string
-          example: mistral-large-latest
-          description: Modèle Mistral utilisé pour générer les conseils
 
     ErrorResponse:
       type: object

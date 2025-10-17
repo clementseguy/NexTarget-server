@@ -7,7 +7,6 @@ engine = create_engine(settings.database_url, echo=settings.debug, connect_args=
 
 # Ensure models imported so metadata includes all tables
 from ..models.user import User  # noqa: F401
-from ..models.ai_interaction import AIInteraction  # noqa: F401
 
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)

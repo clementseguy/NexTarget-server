@@ -1,15 +1,12 @@
 # NexTarget Server
 
-Backend léger pour application mobile : FastAPI + SQLite + JWT + Mistral (proxy) + Orchestrateur coaching.
+Backend léger pour application mobile : FastAPI + SQLite + JWT + OAuth (Google, Facebook).
 
 ## Fonctionnalités
 - Authentification locale (email / mot de passe, hash bcrypt)
-- Providers OAuth externes : Google & Facebook (implémentés v0.1 basique)
+- Providers OAuth externes : Google & Facebook (implémentés v0.1)
 - JWT bearer tokens (access tokens)
-- Endpoints protégés (`/users/me`, `/ai/completions`, `/coach/advice`)
-- Proxy Mistral centralisé (latence, contrôle taille prompt, rate limit naïf)
-- Historisation interactions IA (prompts + réponses)
-- Orchestrateur de conseils (coaching) : prompt engineering simple + parsing + scoring
+- Endpoint protégé `/users/me`
 - Base SQLite via SQLModel (migration future possible vers Postgres)
 - Configuration par variables d'environnement (.env)
 
@@ -25,19 +22,13 @@ Visitez http://127.0.0.1:8000/docs pour la doc interactive.
 
 ## Endpoints principaux (v0.1)
 Auth :
-- POST /auth/register (provider=local|google) – password requis si local
+- POST /auth/register (provider=local|google|facebook) – password requis si local
 - POST /auth/login (provider=local)
 - GET /users/me
 - GET /auth/google/start
 - GET /auth/google/callback
 - GET /auth/facebook/start
 - GET /auth/facebook/callback
-
-IA :
-- POST /ai/completions (GenAI via Mistral)
-
-Coaching :
-- POST /coach/advice (génère une liste de conseils scorés)
 
 ## Sécurité / Production
 - Générer une vraie clé aléatoire pour `JWT_SECRET_KEY`
@@ -70,23 +61,18 @@ pytest -q
 ```
 Couverture actuelle :
 - Authentification locale + providers (unicité email+provider)
-- Historisation des interactions Mistral (mockée)
-- Parsing & scoring des conseils coaching
 
 Améliorations futures tests :
-- Tests d'erreurs (rate limit, prompt trop long)
-- Tests d'intégration Google OAuth (mock id_token)
+- Tests d'intégration Google & Facebook OAuth (mock token endpoints)
 
 ## Roadmap v0.1 (résumé)
-Done : Auth locale, proxy Mistral, historique IA, coaching v1, tests de base.
-En cours : Documentation, intégration réelle Google OAuth.
+Done : Auth locale + OAuth (Google, Facebook), JWT, tests de base.
 À venir (v0.2+) :
 - Refresh tokens / rotation
 - Politique mots de passe forts (zxcvbn ou règles dynamiques)
 - Rate limiting robuste (Redis / nginx / envoy)
 - Sécurité brute-force (compteur + backoff)
 - Logging structuré + tracing (OpenTelemetry)
-- Streaming des réponses Mistral / SSE
 - Passage Postgres + migrations (Alembic)
 - Observabilité (metrics Prometheus)
 
@@ -121,7 +107,6 @@ FACEBOOK_REDIRECT_URI=https://votre-domaine/auth/facebook/callback
 
 ## Architecture rapide
 - couche api/: routers FastAPI
-- couche services/: logique métier & intégrations (Mistral, coaching)
 - couche models/: SQLModel ORM
 - couche schemas/: Pydantic I/O
 
@@ -129,7 +114,7 @@ FACEBOOK_REDIRECT_URI=https://votre-domaine/auth/facebook/callback
 - Hash bcrypt (cost 12)
 - Token JWT HS256 (prévoir rotation / secret fort)
 - CORS permissif en dev (restreindre en prod)
-- Rate limit mémoire (placeholder) -> à remplacer
+- OAuth state validation (CSRF protection)
 
 
 ---
