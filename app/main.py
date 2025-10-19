@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import get_settings
 from .services.database import init_db
-from .api import auth, users
+from .api import auth_google, auth_facebook, users
 
 settings = get_settings()
 
@@ -26,5 +26,9 @@ def on_startup():
 async def health():
     return {"status": "ok"}
 
-app.include_router(auth.router)
+# OAuth authentication routers
+app.include_router(auth_google.router)
+app.include_router(auth_facebook.router)
+
+# User management router
 app.include_router(users.router)
