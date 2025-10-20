@@ -4,6 +4,7 @@ Implements the authorization code flow with OIDC.
 """
 from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from sqlmodel import Session
 import httpx
 from google.oauth2 import id_token
@@ -79,10 +80,10 @@ def google_auth_start(
 
 @router.get("/callback")
 async def google_auth_callback(
-    code: str,
-    state: str,
-    session: Session = Depends(get_session)
-) -> dict:
+    code: str = Query(..., description="Authorization code from Google"),
+    state: str = Query(..., description="State token for CSRF protection"),
+    session: Session = Depends(get_session),
+) -> RedirectResponse:
     """
     Handle Google OAuth callback and exchange code for tokens.
     
@@ -170,5 +171,13 @@ async def google_auth_callback(
     # Get or create user
     user = get_or_create_user(session, email, provider="google")
     
-    # Generate JWT token response
-    return generate_token_response(user)
+    # Generate JWT token and redirect to custom scheme for mobile app
+    token_response = generate_token_response(user)
+    token_response["provider"] = "google"  # Add provider to response
+    
+    # Build redirect URL with token in fragment (# not ? for security)
+    callback_url = "nextarget://callback"
+    fragment = urlencode(token_response)
+    redirect_url = f"{callback_url}#{fragment}"
+    
+    return RedirectResponse(url=redirect_url, status_code=302)

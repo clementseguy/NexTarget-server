@@ -4,6 +4,7 @@ Implements the authorization code flow with Graph API.
 """
 from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from sqlmodel import Session
 import httpx
 
@@ -78,7 +79,7 @@ async def facebook_auth_callback(
     code: str,
     state: str,
     session: Session = Depends(get_session)
-) -> dict:
+) -> RedirectResponse:
     """
     Handle Facebook OAuth callback and exchange code for tokens.
     
@@ -172,5 +173,13 @@ async def facebook_auth_callback(
     # Get or create user
     user = get_or_create_user(session, email, provider="facebook")
     
-    # Generate JWT token response
-    return generate_token_response(user)
+    # Generate JWT token and redirect to custom scheme for mobile app
+    token_response = generate_token_response(user)
+    token_response["provider"] = "facebook"  # Add provider to response
+    
+    # Build redirect URL with token in fragment (# not ? for security)
+    callback_url = "nextarget://callback"
+    fragment = urlencode(token_response)
+    redirect_url = f"{callback_url}#{fragment}"
+    
+    return RedirectResponse(url=redirect_url, status_code=302)
