@@ -6,6 +6,35 @@
 
 ---
 
+## 🎉 MISE À JOUR IMPORTANTE (20 octobre 2025)
+
+### ✅ Modifications backend appliquées
+
+Le backend a été **mis à jour** pour supporter correctement l'authentification OAuth mobile avec Flutter. Les changements suivants ont été implémentés :
+
+| Composant | Avant | Après | Commit |
+|-----------|-------|-------|--------|
+| **auth_google.py** | Retournait JSON `{"access_token": "..."}` | Redirige vers `nextarget://callback#access_token=...` | `c2fc6be` |
+| **auth_facebook.py** | Retournait JSON `{"access_token": "..."}` | Redirige vers `nextarget://callback#access_token=...` | `c2fc6be` |
+| **Custom scheme** | Non défini | `nextarget://callback` | `c2fc6be` |
+| **Méthode** | JSON response (200 OK) | HTTP 302 redirect | `c2fc6be` |
+
+### 🔑 Points clés
+
+- ✅ **RedirectResponse implémentée** : Les endpoints `/auth/google/callback` et `/auth/facebook/callback` redirigent maintenant vers le custom scheme au lieu de retourner du JSON
+- ✅ **Custom scheme défini** : `nextarget://callback` est configuré dans le backend
+- ✅ **Sécurité renforcée** : Le token JWT est transmis dans le fragment (#) et non dans les query params (?)
+- ✅ **Déployé** : Ces modifications sont déjà en production sur Render.com
+
+### 📝 Ce que tu dois faire
+
+1. **Configurer le custom scheme** dans ton app Flutter (iOS + Android) : `nextarget`
+2. **Installer** `flutter_web_auth_2` (version 3.0+)
+3. **Suivre** les exemples de code dans la section 6 de ce guide
+4. **Tester** le flow complet
+
+---
+
 ## 📚 Table des Matières
 
 1. [Comprendre OAuth 2.0 (la base)](#1-comprendre-oauth-20-la-base)
@@ -511,13 +540,13 @@ Dans `ios/Runner/Info.plist`, ajoute avant le dernier `</dict>` :
     <string>Editor</string>
     <key>CFBundleURLSchemes</key>
     <array>
-      <string>myapp</string>
+      <string>nextarget</string>
     </array>
   </dict>
 </array>
 ```
 
-⚠️ **Remplace `myapp` par le nom unique de ton app** (ex: `nextarget`)
+✅ **Le custom scheme utilisé est `nextarget`** (correspondant au backend)
 
 ---
 
@@ -534,12 +563,12 @@ Dans `android/app/src/main/AndroidManifest.xml`, dans `<activity>` :
     <action android:name="android.intent.action.VIEW" />
     <category android:name="android.intent.category.DEFAULT" />
     <category android:name="android.intent.category.BROWSABLE" />
-    <data android:scheme="myapp" />
+    <data android:scheme="nextarget" />
   </intent-filter>
 </activity>
 ```
 
-⚠️ **Remplace `myapp` par le même nom que dans iOS**
+✅ **Utilise le même scheme `nextarget` que dans iOS**
 
 ---
 
@@ -556,7 +585,7 @@ import 'dart:convert';
 
 class AuthService {
   static const String _baseUrl = 'https://nextarget-server.onrender.com';
-  static const String _callbackScheme = 'myapp'; // ⚠️ Change selon ton app
+  static const String _callbackScheme = 'nextarget'; // ✅ Correspond au backend
   
   /// Lance le flow d'authentification Google OAuth
   Future<Map<String, dynamic>> signInWithGoogle() async {
@@ -634,9 +663,11 @@ class AuthService {
 }
 ```
 
-**⚠️ POINT CRITIQUE : Comment flutter_web_auth_2 intercepte la réponse**
+**✅ POINT IMPORTANT : Comment flutter_web_auth_2 intercepte la réponse**
 
-Le backend retourne actuellement du JSON directement :
+Le backend a été mis à jour pour effectuer une redirection HTTP 302 au lieu de retourner du JSON directement.
+
+**Ancien comportement** (avant le fix) :
 ```json
 {
   "access_token": "eyJ...",
@@ -646,17 +677,17 @@ Le backend retourne actuellement du JSON directement :
 }
 ```
 
-**Problème** : `flutter_web_auth_2` attend une redirection vers `myapp://callback`, pas du JSON brut.
+**Nouveau comportement** (actuel) : Le backend redirige vers `nextarget://callback#access_token=...`
 
-**Solution** : On doit modifier le backend pour rediriger au lieu de retourner du JSON.
+✅ **Cette modification a déjà été appliquée dans le backend déployé.**
 
 ---
 
-### 🔨 Modification requise du backend
+### 🔨 Implémentation backend (DÉJÀ APPLIQUÉE)
 
-#### Option A : Redirection avec fragment (RECOMMANDÉ)
+#### Redirection avec fragment (IMPLÉMENTÉE)
 
-Modifie `app/api/auth_google.py`, fonction `google_auth_callback` :
+**Code actuel dans `app/api/auth_google.py` et `app/api/auth_facebook.py`** :
 
 ```python
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -670,26 +701,17 @@ async def google_auth_callback(
 ) -> RedirectResponse:  # ⬅️ Change le type de retour
     # ... tout le code existant jusqu'à la génération du token ...
     
+    # Get or create user
     user = get_or_create_user(session, email, provider="google")
+    
+    # Generate JWT token and redirect to custom scheme for mobile app
     token_response = generate_token_response(user)
+    token_response["provider"] = "google"  # Add provider to response
     
-    # ⚠️ NOUVEAU : Au lieu de retourner du JSON, on redirige
-    from urllib.parse import urlencode
-    
-    # Construit l'URL de redirection avec les données dans le fragment (#)
-    callback_url = "myapp://callback"  # ⚠️ Change "myapp" selon ton app
-    
-    # Utilise le fragment (#) au lieu de query params (?) pour plus de sécurité
-    fragment = urlencode({
-        'access_token': token_response['access_token'],
-        'token_type': token_response['token_type'],
-        'email': token_response['email'],
-        'provider': token_response['provider'],
-    })
-    
+    # Build redirect URL with token in fragment (# not ? for security)
+    callback_url = "nextarget://callback"  # ⚠️ Utilise le custom scheme de l'app
+    fragment = urlencode(token_response)
     redirect_url = f"{callback_url}#{fragment}"
-    
-    print(f"🔄 Redirection vers: {redirect_url}")
     
     return RedirectResponse(url=redirect_url, status_code=302)
 ```
@@ -700,9 +722,13 @@ async def google_auth_callback(
 - Le token JWT reste uniquement côté client
 - Évite les logs serveur avec des tokens
 
+**📝 Note importante** : Le custom scheme utilisé est `nextarget://callback`. Tu dois configurer ce même scheme dans ton app Flutter (voir sections suivantes).
+
+**🔄 Commit de référence** : `c2fc6be` - "fix(oauth): redirect to custom scheme instead of returning JSON for mobile app"
+
 ---
 
-#### Option B : Page HTML intermédiaire (si Option A ne marche pas)
+#### Option alternative : Page HTML intermédiaire (non utilisée actuellement)
 
 Si la redirection directe échoue, utilise une page HTML qui redirige avec JavaScript :
 
@@ -1200,24 +1226,24 @@ Avant de dire "c'est bon, c'est terminé", vérifie cette checklist :
 
 ### ✅ Configuration Google Cloud
 
-- [ ] Projet Google Cloud créé
+- [x] Projet Google Cloud créé
 - [ ] Google+ API activée
-- [ ] OAuth consent screen configuré
+- [x] OAuth consent screen configuré
 - [ ] OAuth 2.0 Client ID créé
 - [ ] Redirect URI correctement configuré (avec `/auth/google/callback`)
-- [ ] CLIENT_ID et CLIENT_SECRET copiés
+- [x] CLIENT_ID et CLIENT_SECRET copiés
 
 ### ✅ Configuration Render
 
-- [ ] Variable `GOOGLE_CLIENT_ID` ajoutée
-- [ ] Variable `GOOGLE_CLIENT_SECRET` ajoutée (et marquée Secret)
-- [ ] Variable `GOOGLE_REDIRECT_URI` ajoutée
-- [ ] Service redémarré après ajout des variables
-- [ ] Service en statut "Live" (vert)
+- [x] Variable `GOOGLE_CLIENT_ID` ajoutée
+- [x] Variable `GOOGLE_CLIENT_SECRET` ajoutée (et marquée Secret)
+- [x] Variable `GOOGLE_REDIRECT_URI` ajoutée
+- [x] Service redémarré après ajout des variables
+- [x] Service en statut "Live" (vert)
 
 ### ✅ Tests backend
 
-- [ ] `GET /health` répond `{"status": "ok"}`
+- [x] `GET /health` répond `{"status": "ok"}`
 - [ ] `GET /auth/google/start` retourne `{auth_url, state}`
 - [ ] Flow manuel complet fonctionne (browser → callback → JWT)
 - [ ] JWT obtenu fonctionne sur `/users/me`
@@ -1496,9 +1522,9 @@ Le dev avait proposé 3 hypothèses. Voici laquelle on utilise :
 
 ---
 
-### 🔧 Actions à faire côté backend
+### ✅ Actions backend (DÉJÀ APPLIQUÉES)
 
-Pour que l'hypothèse B fonctionne, **modifie `app/api/auth_google.py`** :
+Les modifications suivantes ont **déjà été implémentées** dans `app/api/auth_google.py` et `app/api/auth_facebook.py` :
 
 ```python
 from fastapi.responses import RedirectResponse
@@ -1509,14 +1535,15 @@ async def google_auth_callback(
     code: str,
     state: str,
     session: Session = Depends(get_session)
-) -> RedirectResponse:  # ⬅️ Change le type de retour
+) -> RedirectResponse:  # ✅ Type de retour modifié
     
     # [... tout le code existant jusqu'à la génération du token ...]
     
     user = get_or_create_user(session, email, provider="google")
     token_response = generate_token_response(user)
+    token_response["provider"] = "google"  # Ajout du provider
     
-    # ⚠️ REMPLACE le return actuel par ceci :
+    # ✅ Redirection implémentée
     callback_url = "nextarget://callback"
     fragment = urlencode(token_response)
     
@@ -1526,7 +1553,7 @@ async def google_auth_callback(
     )
 ```
 
-**Même chose pour Facebook** dans `app/api/auth_facebook.py`.
+✅ **Ces modifications sont déjà déployées en production** (commit `c2fc6be`).
 
 ---
 
