@@ -13,9 +13,10 @@
 3. [Configuration Google Cloud Console](#3-configuration-google-cloud-console)
 4. [Configuration du serveur](#4-configuration-du-serveur)
 5. [Test de l'intégration](#5-test-de-lintégration)
-6. [Intégration dans l'app mobile](#6-intégration-dans-lapp-mobile)
+6. [Intégration dans l'app mobile Flutter](#6-intégration-dans-lapp-mobile-flutter)
 7. [Problèmes courants et solutions](#7-problèmes-courants-et-solutions)
 8. [Checklist finale](#8-checklist-finale)
+9. [FAQ technique détaillée](#9-faq-technique-détaillée)
 
 ---
 
@@ -40,11 +41,13 @@
 
 ### 📊 Schéma du flow complet
 
+**⚠️ ATTENTION : Ce schéma montre le flow COMPLET. Voir section 6 pour les détails Flutter.**
+
 ```
 ┌─────────────┐                 ┌─────────────┐                 ┌─────────────┐
 │             │                 │             │                 │             │
 │  App Mobile │                 │   Serveur   │                 │   Google    │
-│             │                 │   Backend   │                 │             │
+│   Flutter   │                 │   Backend   │                 │             │
 └──────┬──────┘                 └──────┬──────┘                 └──────┬──────┘
        │                               │                               │
        │ 1. GET /auth/google/start     │                               │
@@ -53,28 +56,30 @@
        │ 2. {auth_url, state}          │                               │
        │<──────────────────────────────│                               │
        │                               │                               │
-       │ 3. Ouvre auth_url dans browser│                               │
+       │ 3. Ouvre auth_url dans        │                               │
+       │    flutter_web_auth_2         │                               │
        │───────────────────────────────────────────────────────────────>│
        │                               │                               │
        │                               │  4. User se connecte + consent│
        │                               │                               │
-       │ 5. Redirige vers /callback    │                               │
-       │   avec code + state           │                               │
-       │<───────────────────────────────────────────────────────────────│
-       │                               │                               │
-       │ 6. Envoie code au serveur     │                               │
-       │──────────────────────────────>│                               │
-       │                               │                               │
-       │                               │ 7. Échange code contre tokens │
-       │                               │──────────────────────────────>│
-       │                               │                               │
-       │                               │ 8. {id_token, access_token}   │
+       │ 5. Google redirige vers       │                               │
+       │    /callback avec code        │                               │
        │                               │<──────────────────────────────│
        │                               │                               │
-       │                               │ 9. Vérifie id_token           │
+       │                               │ 6. Échange code contre tokens │
+       │                               │──────────────────────────────>│
        │                               │                               │
-       │ 10. {access_token: "JWT..."}  │                               │
+       │                               │ 7. {id_token, access_token}   │
+       │                               │<──────────────────────────────│
+       │                               │                               │
+       │                               │ 8. Vérifie id_token + crée user│
+       │                               │                               │
+       │ 9. flutter_web_auth_2         │                               │
+       │    intercepte la réponse      │                               │
+       │    JSON du serveur            │                               │
        │<──────────────────────────────│                               │
+       │                               │                               │
+       │ 10. Parse JSON et stocke JWT  │                               │
        │                               │                               │
 ```
 
@@ -82,14 +87,15 @@
 
 1. **App demande l'URL d'auth** → Le serveur génère un lien Google
 2. **App reçoit l'URL** → Elle contient un `state` pour la sécurité (anti-CSRF)
-3. **User clique sur le lien** → Ouvre un navigateur vers Google
+3. **User clique → navigateur in-app s'ouvre** → Via `flutter_web_auth_2.authenticate()`
 4. **User se connecte à Google** → Google demande "autoriser cette app ?"
-5. **Google redirige vers notre serveur** → Avec un `code` secret
-6. **Serveur échange le code** → Contre les vrais tokens
+5. **Google redirige vers `/callback`** → Avec un `code` secret (le serveur reçoit cette requête)
+6. **Serveur échange le code** → Contre les vrais tokens auprès de Google
 7. **Serveur vérifie l'identité** → Avec le `id_token` de Google
 8. **Serveur crée/récupère l'user** → Dans notre base de données
-9. **Serveur génère un JWT** → Notre propre token pour l'app
-10. **App reçoit le JWT** → Elle peut maintenant faire des requêtes authentifiées
+9. **Serveur génère un JWT et le retourne en JSON** → Le navigateur in-app affiche cette réponse
+10. **flutter_web_auth_2 intercepte la page** → Parse le JSON et retourne le JWT à l'app Flutter
+11. **App stocke le JWT** → Elle peut maintenant faire des requêtes authentifiées
 
 ---
 
@@ -458,117 +464,553 @@ Maintenant on va donner ces credentials à notre serveur.
 
 ---
 
-## 6. Intégration dans l'app mobile
+## 6. Intégration dans l'app mobile Flutter
 
-### 📱 Flow côté mobile (iOS/Android)
+### 📱 Package Flutter recommandé : flutter_web_auth_2
 
-Maintenant qu'on sait que le backend fonctionne, voici comment l'app mobile doit l'utiliser.
+**🎯 Choix du package** :
 
-#### Étape mobile 1 : Demander l'URL d'auth
+| Package | Avantages | Inconvénients | Verdict |
+|---------|-----------|---------------|---------|
+| **flutter_web_auth_2** | ✅ Léger (50KB)<br>✅ Spécialisé OAuth<br>✅ Intercepte automatiquement la réponse<br>✅ Gère les custom schemes | ❌ Moins de contrôle sur le WebView | ✅ **RECOMMANDÉ** |
+| flutter_inappwebview | ✅ Très configurable<br>✅ Accès complet au DOM | ❌ Lourd (500KB+)<br>❌ Overkill pour OAuth simple | ⚠️ Si besoin avancé uniquement |
+| webview_flutter | ✅ Officiel Google | ❌ Basique<br>❌ Interception manuelle complexe | ❌ Pas adapté OAuth |
 
-```javascript
-// Exemple en React Native / Flutter / Swift / Kotlin
-const response = await fetch('https://nextarget-server.onrender.com/auth/google/start');
-const data = await response.json();
+**👉 Pour ce projet : Utilise `flutter_web_auth_2`**
 
-const authUrl = data.auth_url;  // https://accounts.google.com/...
-const state = data.state;        // Pour vérifier plus tard
+---
+
+### 📦 Installation
+
+1. **Ajoute le package dans `pubspec.yaml`** :
+
+```yaml
+dependencies:
+  flutter_web_auth_2: ^3.0.0
+  http: ^1.1.0
+  flutter_secure_storage: ^9.0.0
 ```
 
-#### Étape mobile 2 : Ouvrir l'URL dans un navigateur in-app
+2. **Installe** :
 
-```javascript
-// React Native avec react-native-inappbrowser
-import InAppBrowser from 'react-native-inappbrowser-reborn';
-
-const result = await InAppBrowser.openAuth(
-  authUrl,
-  'https://nextarget-server.onrender.com/auth/google/callback'
-);
-
-// result.url contient l'URL de callback avec le code et state
-```
-
-#### Étape mobile 3 : Extraire le code de l'URL de callback
-
-```javascript
-// L'URL ressemble à : https://...callback?code=4/xxx&state=yyy
-
-const url = new URL(result.url);
-const code = url.searchParams.get('code');
-const returnedState = url.searchParams.get('state');
-
-// Vérifier que le state correspond (sécurité)
-if (returnedState !== state) {
-  throw new Error('Invalid state - possible CSRF attack!');
-}
-```
-
-#### Étape mobile 4 : Envoyer le code au serveur
-
-```javascript
-const tokenResponse = await fetch(
-  `https://nextarget-server.onrender.com/auth/google/callback?code=${code}&state=${state}`
-);
-
-const tokenData = await tokenResponse.json();
-// { access_token: "eyJ...", token_type: "bearer", email: "...", provider: "google" }
-```
-
-#### Étape mobile 5 : Stocker le token
-
-```javascript
-// Stocke le token en sécurité (Keychain iOS, Keystore Android, SecureStorage)
-await SecureStorage.setItem('auth_token', tokenData.access_token);
-await SecureStorage.setItem('user_email', tokenData.email);
-```
-
-#### Étape mobile 6 : Utiliser le token pour les requêtes
-
-```javascript
-const token = await SecureStorage.getItem('auth_token');
-
-const response = await fetch('https://nextarget-server.onrender.com/users/me', {
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
-});
-
-const userData = await response.json();
+```bash
+flutter pub get
 ```
 
 ---
 
-### 🎨 UI/UX recommandé
+### 🔧 Configuration iOS (important !)
 
-**Écran de login** :
+Dans `ios/Runner/Info.plist`, ajoute avant le dernier `</dict>` :
 
-```
-┌────────────────────────────┐
-│                            │
-│     Logo NexTarget         │
-│                            │
-│   Bienvenue !              │
-│   Connecte-toi pour        │
-│   commencer                │
-│                            │
-│  ┌────────────────────┐   │
-│  │  🔵 Google Sign In  │   │  ← Bouton avec logo Google
-│  └────────────────────┘   │
-│                            │
-│  En continuant, tu acceptes│
-│  nos CGU et Politique de   │
-│  confidentialité           │
-│                            │
-└────────────────────────────┘
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleTypeRole</key>
+    <string>Editor</string>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>myapp</string>
+    </array>
+  </dict>
+</array>
 ```
 
-**États à gérer** :
+⚠️ **Remplace `myapp` par le nom unique de ton app** (ex: `nextarget`)
 
-1. **Initial** : Bouton "Sign in with Google" cliquable
-2. **Loading** : Spinner pendant l'ouverture du browser
-3. **Authentifié** : Rediriger vers l'écran principal
-4. **Erreur** : Afficher un message clair + bouton "Réessayer"
+---
+
+### 🔧 Configuration Android (important !)
+
+Dans `android/app/src/main/AndroidManifest.xml`, dans `<activity>` :
+
+```xml
+<activity android:name=".MainActivity" ...>
+  <!-- Contenu existant -->
+  
+  <!-- Ajoute ceci -->
+  <intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="myapp" />
+  </intent-filter>
+</activity>
+```
+
+⚠️ **Remplace `myapp` par le même nom que dans iOS**
+
+---
+
+### 💻 Code Flutter complet
+
+#### Étape 1 : Service d'authentification
+
+Crée `lib/services/auth_service.dart` :
+
+```dart
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class AuthService {
+  static const String _baseUrl = 'https://nextarget-server.onrender.com';
+  static const String _callbackScheme = 'myapp'; // ⚠️ Change selon ton app
+  
+  /// Lance le flow d'authentification Google OAuth
+  Future<Map<String, dynamic>> signInWithGoogle() async {
+    try {
+      // 1. Obtenir l'URL d'authentification Google depuis le serveur
+      final startResponse = await http.get(
+        Uri.parse('$_baseUrl/auth/google/start'),
+      );
+      
+      if (startResponse.statusCode != 200) {
+        throw Exception('Erreur serveur: ${startResponse.statusCode}');
+      }
+      
+      final startData = jsonDecode(startResponse.body);
+      final authUrl = startData['auth_url'] as String;
+      final state = startData['state'] as String;
+      
+      print('🔗 URL Google OAuth: $authUrl');
+      
+      // 2. Ouvrir le navigateur in-app pour l'authentification Google
+      // ⚠️ ATTENTION : On donne l'URL du backend, pas un custom scheme !
+      final callbackUrl = '$_baseUrl/auth/google/callback';
+      
+      final resultUrl = await FlutterWebAuth2.authenticate(
+        url: authUrl,
+        callbackUrlScheme: _callbackScheme,
+      );
+      
+      print('✅ Callback reçu: $resultUrl');
+      
+      // 3. Le résultat est une URL custom scheme avec les données
+      // Format attendu: myapp://callback#access_token=xxx&token_type=bearer&email=...
+      final uri = Uri.parse(resultUrl);
+      
+      // 4. Parser les paramètres (dans le fragment ou query)
+      final params = uri.fragment.isNotEmpty 
+          ? Uri.splitQueryString(uri.fragment)
+          : uri.queryParameters;
+      
+      final accessToken = params['access_token'];
+      final email = params['email'];
+      final provider = params['provider'];
+      
+      if (accessToken == null || email == null) {
+        throw Exception('Token ou email manquant dans la réponse');
+      }
+      
+      print('✅ Authentification réussie: $email');
+      
+      return {
+        'access_token': accessToken,
+        'email': email,
+        'provider': provider ?? 'google',
+      };
+      
+    } catch (e) {
+      print('❌ Erreur authentification: $e');
+      rethrow;
+    }
+  }
+  
+  /// Récupère les infos de l'utilisateur authentifié
+  Future<Map<String, dynamic>> getUserInfo(String token) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/users/me'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    
+    if (response.statusCode != 200) {
+      throw Exception('Erreur lors de la récupération du profil');
+    }
+    
+    return jsonDecode(response.body);
+  }
+}
+```
+
+**⚠️ POINT CRITIQUE : Comment flutter_web_auth_2 intercepte la réponse**
+
+Le backend retourne actuellement du JSON directement :
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer",
+  "email": "user@gmail.com",
+  "provider": "google"
+}
+```
+
+**Problème** : `flutter_web_auth_2` attend une redirection vers `myapp://callback`, pas du JSON brut.
+
+**Solution** : On doit modifier le backend pour rediriger au lieu de retourner du JSON.
+
+---
+
+### 🔨 Modification requise du backend
+
+#### Option A : Redirection avec fragment (RECOMMANDÉ)
+
+Modifie `app/api/auth_google.py`, fonction `google_auth_callback` :
+
+```python
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
+
+@router.get("/callback")
+async def google_auth_callback(
+    code: str,
+    state: str,
+    session: Session = Depends(get_session)
+) -> RedirectResponse:  # ⬅️ Change le type de retour
+    # ... tout le code existant jusqu'à la génération du token ...
+    
+    user = get_or_create_user(session, email, provider="google")
+    token_response = generate_token_response(user)
+    
+    # ⚠️ NOUVEAU : Au lieu de retourner du JSON, on redirige
+    from urllib.parse import urlencode
+    
+    # Construit l'URL de redirection avec les données dans le fragment (#)
+    callback_url = "myapp://callback"  # ⚠️ Change "myapp" selon ton app
+    
+    # Utilise le fragment (#) au lieu de query params (?) pour plus de sécurité
+    fragment = urlencode({
+        'access_token': token_response['access_token'],
+        'token_type': token_response['token_type'],
+        'email': token_response['email'],
+        'provider': token_response['provider'],
+    })
+    
+    redirect_url = f"{callback_url}#{fragment}"
+    
+    print(f"🔄 Redirection vers: {redirect_url}")
+    
+    return RedirectResponse(url=redirect_url, status_code=302)
+```
+
+**Pourquoi le fragment (#) au lieu de query params (?)** :
+
+- Le fragment n'est JAMAIS envoyé au serveur (plus sécurisé)
+- Le token JWT reste uniquement côté client
+- Évite les logs serveur avec des tokens
+
+---
+
+#### Option B : Page HTML intermédiaire (si Option A ne marche pas)
+
+Si la redirection directe échoue, utilise une page HTML qui redirige avec JavaScript :
+
+```python
+from fastapi.responses import HTMLResponse
+
+@router.get("/callback")
+async def google_auth_callback(...) -> HTMLResponse:
+    # ... code existant ...
+    
+    token_response = generate_token_response(user)
+    
+    # Page HTML qui redirige automatiquement
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Authentification réussie</title>
+    </head>
+    <body>
+        <h1>✅ Authentification réussie</h1>
+        <p>Redirection vers l'application...</p>
+        <script>
+            // Redirige vers le custom scheme avec le token
+            const params = new URLSearchParams({{
+                access_token: '{token_response["access_token"]}',
+                email: '{token_response["email"]}',
+                provider: '{token_response["provider"]}'
+            }});
+            
+            window.location.href = 'myapp://callback#' + params.toString();
+        </script>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=html_content)
+```
+
+---
+
+### 📱 Utilisation dans l'UI Flutter
+
+Crée `lib/screens/login_screen.dart` :
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/auth_service.dart';
+
+class LoginScreen extends StatefulWidget {
+  @override
+  _LoginScreenState createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _authService = AuthService();
+  final _storage = FlutterSecureStorage();
+  bool _isLoading = false;
+  String? _errorMessage;
+  
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      // 1. Authentification Google OAuth
+      final authData = await _authService.signInWithGoogle();
+      
+      // 2. Stocker le token en sécurité
+      await _storage.write(
+        key: 'auth_token',
+        value: authData['access_token'],
+      );
+      await _storage.write(
+        key: 'user_email',
+        value: authData['email'],
+      );
+      
+      // 3. Rediriger vers l'écran principal
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+      
+    } catch (e) {
+      setState(() {
+        _errorMessage = _getErrorMessage(e);
+        _isLoading = false;
+      });
+    }
+  }
+  
+  String _getErrorMessage(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+    
+    if (errorStr.contains('user_cancelled') || errorStr.contains('canceled')) {
+      return 'Connexion annulée';
+    } else if (errorStr.contains('network')) {
+      return 'Problème de connexion internet';
+    } else if (errorStr.contains('timeout')) {
+      return 'La requête a expiré, réessaie';
+    } else {
+      return 'Une erreur est survenue : ${error.toString()}';
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo
+              Icon(Icons.rocket_launch, size: 80, color: Colors.blue),
+              SizedBox(height: 24),
+              
+              // Titre
+              Text(
+                'Bienvenue sur NexTarget',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Connecte-toi pour commencer',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 48),
+              
+              // Bouton Google Sign In
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _signInWithGoogle,
+                  icon: _isLoading
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.login),
+                  label: Text(
+                    _isLoading ? 'Connexion...' : 'Se connecter avec Google',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              
+              // Message d'erreur
+              if (_errorMessage != null) ...[
+                SizedBox(height: 16),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red.shade900),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              
+              SizedBox(height: 24),
+              
+              // CGU
+              Text(
+                'En continuant, tu acceptes nos CGU et notre Politique de confidentialité',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+---
+
+### 🔒 Utiliser le token pour les requêtes authentifiées
+
+Crée `lib/services/api_service.dart` :
+
+```dart
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+
+class ApiService {
+  static const String _baseUrl = 'https://nextarget-server.onrender.com';
+  final _storage = FlutterSecureStorage();
+  
+  /// Récupère le token stocké
+  Future<String?> _getToken() async {
+    return await _storage.read(key: 'auth_token');
+  }
+  
+  /// Requête GET authentifiée
+  Future<http.Response> authenticatedGet(String endpoint) async {
+    final token = await _getToken();
+    
+    if (token == null) {
+      throw Exception('Non authentifié');
+    }
+    
+    return await http.get(
+      Uri.parse('$_baseUrl$endpoint'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+  }
+  
+  /// Exemple : récupérer le profil utilisateur
+  Future<Map<String, dynamic>> getMyProfile() async {
+    final response = await authenticatedGet('/users/me');
+    
+    if (response.statusCode == 401) {
+      throw Exception('Session expirée, reconnecte-toi');
+    }
+    
+    if (response.statusCode != 200) {
+      throw Exception('Erreur serveur: ${response.statusCode}');
+    }
+    
+    return jsonDecode(response.body);
+  }
+}
+```
+
+---
+
+### 🎬 Flow complet résumé
+
+1. **User clique sur "Se connecter avec Google"**
+2. **App appelle `/auth/google/start`** → Reçoit `auth_url`
+3. **flutter_web_auth_2 ouvre `auth_url`** → Navigateur in-app vers Google
+4. **User se connecte et accepte** → Google redirige vers `/auth/google/callback?code=XXX`
+5. **Serveur traite le callback** :
+   - Échange le code contre des tokens auprès de Google
+   - Vérifie l'identité de l'user
+   - Crée/récupère l'user en base
+   - **Redirige vers `myapp://callback#access_token=JWT...`**
+6. **flutter_web_auth_2 intercepte** le custom scheme `myapp://`
+7. **App parse le fragment** → Extrait `access_token`, `email`, `provider`
+8. **App stocke le token** dans FlutterSecureStorage
+9. **App redirige** vers l'écran principal
+
+---
+
+### ⚠️ Points d'attention spécifiques Flutter
+
+#### 1. **Custom scheme doit être unique**
+
+- ❌ `myapp://` → Trop générique, conflits possibles
+- ✅ `nextarget://` → Unique à ton app
+- ✅ `com.yourcompany.nextarget://` → Encore mieux (style reverse domain)
+
+#### 2. **Tester sur un vrai device**
+
+L'authentification OAuth ne fonctionne PAS correctement sur simulateur iOS. Pourquoi ?
+
+- Le simulateur partage les cookies avec Safari de ton Mac
+- Peut causer des problèmes de session
+
+**Solution** : Teste toujours sur un vrai iPhone/Android.
+
+#### 3. **Gérer l'annulation user**
+
+Si l'user appuie sur "Annuler" dans le navigateur Google :
+
+```dart
+try {
+  final result = await FlutterWebAuth2.authenticate(...);
+} on PlatformException catch (e) {
+  if (e.code == 'CANCELED') {
+    print('User a annulé la connexion');
+    // N'affiche pas d'erreur, c'est normal
+  } else {
+    print('Erreur: ${e.message}');
+  }
+}
+```
 
 ---
 
@@ -852,6 +1294,273 @@ Le `access_token` qu'on retourne expire après 60 minutes. Pour éviter que l'us
 4. On renvoie un nouveau JWT à l'app
 
 **Implémentation** : Pas dans la v0.1, mais à prévoir pour la v0.2 !
+
+---
+
+## 9. FAQ technique détaillée
+
+### ❓ Question 1 : Quel package Flutter dois-je utiliser ?
+
+**Question exacte du dev** : _"Le doc mentionne react-native-inappbrowser mais on est sur Flutter. Quel package utiliser ?"_
+
+**Réponse** :
+
+✅ **Utilise `flutter_web_auth_2`** (version 3.0+)
+
+**Comparaison détaillée** :
+
+| Critère | flutter_web_auth_2 | flutter_inappwebview | webview_flutter |
+|---------|-------------------|----------------------|-----------------|
+| **Taille** | ~50KB | ~500KB+ | ~200KB |
+| **Spécialisé OAuth** | ✅ Oui | ❌ Non (usage général) | ❌ Non |
+| **Auto-intercept callback** | ✅ Oui | ⚠️ Manuel | ⚠️ Manuel |
+| **Custom URL schemes** | ✅ Géré auto | ⚠️ Config complexe | ⚠️ Config complexe |
+| **Maintenance** | ✅ Actif | ✅ Actif | ✅ Actif (Google) |
+| **Difficulté** | ⭐ Facile | ⭐⭐⭐ Avancé | ⭐⭐ Moyen |
+
+**Verdict final** : `flutter_web_auth_2` est fait EXACTEMENT pour ce use case (OAuth).
+
+**Installation** :
+```yaml
+dependencies:
+  flutter_web_auth_2: ^3.0.0
+```
+
+---
+
+### ❓ Question 2 : Comment l'app intercepte le callback du serveur ?
+
+**Question exacte du dev** : _"Comment l'app intercepte https://nextarget-server.onrender.com/auth/google/callback?code=XXX ? Le navigateur affiche le JSON du serveur ?"_
+
+**Réponse détaillée** :
+
+**🔴 Problème actuel** : Le backend retourne du JSON directement :
+
+```json
+{
+  "access_token": "eyJ...",
+  "email": "user@gmail.com",
+  "provider": "google"
+}
+```
+
+**❌ Ce qui se passe** : Le navigateur in-app affiche cette page JSON → L'app ne peut pas l'intercepter facilement.
+
+**✅ Solution : Le backend DOIT rediriger vers un custom scheme**
+
+#### Modification requise du backend
+
+**Dans `app/api/auth_google.py`**, remplace le return final par une redirection :
+
+```python
+from fastapi.responses import RedirectResponse
+from urllib.parse import urlencode
+
+@router.get("/callback")
+async def google_auth_callback(
+    code: str,
+    state: str,
+    session: Session = Depends(get_session)
+) -> RedirectResponse:  # ⬅️ Change ici
+    # ... tout le code existant ...
+    
+    user = get_or_create_user(session, email, provider="google")
+    token_response = generate_token_response(user)
+    
+    # ⚠️ NOUVEAU : Redirige vers le custom scheme de l'app
+    callback_scheme = "nextarget://callback"  # Défini dans l'app Flutter
+    
+    # Utilise le FRAGMENT (#) pour plus de sécurité
+    fragment = urlencode({
+        'access_token': token_response['access_token'],
+        'token_type': token_response['token_type'],
+        'email': token_response['email'],
+        'provider': token_response['provider'],
+    })
+    
+    redirect_url = f"{callback_scheme}#{fragment}"
+    # Exemple: nextarget://callback#access_token=eyJ...&email=user@gmail.com
+    
+    return RedirectResponse(url=redirect_url, status_code=302)
+```
+
+**Pourquoi `#fragment` au lieu de `?query`** :
+
+- ✅ Le fragment (#) n'est JAMAIS envoyé au serveur (plus sécurisé)
+- ✅ Le JWT reste uniquement côté client
+- ✅ Évite les logs serveur avec des tokens sensibles
+
+#### Côté Flutter
+
+```dart
+final resultUrl = await FlutterWebAuth2.authenticate(
+  url: authUrl,
+  callbackUrlScheme: 'nextarget',  // Juste le scheme, sans ://
+);
+
+// resultUrl = "nextarget://callback#access_token=eyJ...&email=..."
+print('✅ URL interceptée: $resultUrl');
+
+final uri = Uri.parse(resultUrl);
+final params = Uri.splitQueryString(uri.fragment);  // Parse le fragment
+
+final token = params['access_token'];  // Extrait le JWT
+final email = params['email'];
+```
+
+**Résumé du flow** :
+
+1. Google redirige → `https://backend/callback?code=XXX`
+2. Backend traite le code → Génère le JWT
+3. Backend redirige → `nextarget://callback#access_token=JWT`
+4. OS intercepte le custom scheme → Ouvre l'app Flutter
+5. flutter_web_auth_2 récupère l'URL → Retourne `resultUrl`
+6. App parse `resultUrl` → Extrait le token
+
+---
+
+### ❓ Question 3 : Pourquoi RE-appeler /callback ? Le backend ne l'a pas déjà traité ?
+
+**Question exacte du dev** : _"Pourquoi l'étape 4 du guide dit 'Envoyer le code au serveur' alors que Google a déjà redirigé vers /callback ?"_
+
+**Réponse : C'était une ERREUR dans le guide initial** ❌
+
+Il y a **DEUX flows possibles** pour OAuth :
+
+#### Flow A : Backend intermédiaire (NOTRE IMPLÉMENTATION)
+
+```
+User → Google → Backend → App
+```
+
+**Étapes** :
+1. App appelle `/auth/google/start` → Obtient `auth_url`
+2. App ouvre `auth_url` dans navigateur in-app
+3. User se connecte à Google
+4. **Google redirige vers le BACKEND** (`/callback?code=XXX`)
+5. **Backend échange le code** contre les tokens auprès de Google
+6. **Backend génère le JWT** et redirige vers `myapp://callback#token=JWT`
+7. **App intercepte le custom scheme** et récupère le JWT
+
+**Avantages** :
+- ✅ Le `CLIENT_SECRET` reste sur le serveur (sécurisé)
+- ✅ Logique métier centralisée (création user, etc.)
+- ✅ L'app reçoit directement un JWT prêt à l'emploi
+
+**Inconvénient** :
+- ⚠️ Nécessite un backend fonctionnel
+
+---
+
+#### Flow B : Mobile direct (Alternative, NON utilisée ici)
+
+```
+User → Google → App (l'app échange le code)
+```
+
+**Étapes** :
+1. App appelle `/auth/google/start` → Obtient `auth_url`
+2. App ouvre `auth_url` avec custom scheme dans redirect_uri
+3. User se connecte
+4. **Google redirige DIRECTEMENT vers `myapp://callback?code=XXX`**
+5. **App intercepte** le custom scheme
+6. **App envoie le code au backend** via un endpoint dédié
+7. **Backend échange le code** et retourne le JWT
+
+**Configuration Google différente** :
+```
+Redirect URI: myapp://callback  (au lieu de https://backend/callback)
+```
+
+**Avantages** :
+- ✅ Moins de round-trips réseau
+
+**Inconvénients** :
+- ❌ Plus complexe côté mobile
+- ❌ Nécessite d'envoyer le code au backend quand même
+- ❌ Moins standard
+
+---
+
+### 📊 Comparaison des 3 hypothèses du dev
+
+Le dev avait proposé 3 hypothèses. Voici laquelle on utilise :
+
+| Hypothèse | Description | Utilisée ? |
+|-----------|-------------|------------|
+| **A** | Google → Backend → Backend retourne JSON → App parse HTML | ❌ Non (mais c'était l'implémentation actuelle INCORRECTE) |
+| **B** | Google → Backend → **Backend redirige vers `myapp://callback?token=JWT`** | ✅ **OUI, c'est la bonne** |
+| **C** | Google → `myapp://callback?code=XXX` → App appelle backend avec le code | ❌ Non (flow alternatif, plus complexe) |
+
+**Conclusion** : On utilise l'hypothèse B avec une redirection backend.
+
+---
+
+### 🔧 Actions à faire côté backend
+
+Pour que l'hypothèse B fonctionne, **modifie `app/api/auth_google.py`** :
+
+```python
+from fastapi.responses import RedirectResponse
+from urllib.parse import urlencode
+
+@router.get("/callback")
+async def google_auth_callback(
+    code: str,
+    state: str,
+    session: Session = Depends(get_session)
+) -> RedirectResponse:  # ⬅️ Change le type de retour
+    
+    # [... tout le code existant jusqu'à la génération du token ...]
+    
+    user = get_or_create_user(session, email, provider="google")
+    token_response = generate_token_response(user)
+    
+    # ⚠️ REMPLACE le return actuel par ceci :
+    callback_url = "nextarget://callback"
+    fragment = urlencode(token_response)
+    
+    return RedirectResponse(
+        url=f"{callback_url}#{fragment}",
+        status_code=302
+    )
+```
+
+**Même chose pour Facebook** dans `app/api/auth_facebook.py`.
+
+---
+
+### 🎯 Récapitulatif des custom schemes
+
+**Configuration nécessaire** :
+
+1. **iOS** (`ios/Runner/Info.plist`) :
+```xml
+<key>CFBundleURLSchemes</key>
+<array>
+  <string>nextarget</string>  <!-- Sans :// -->
+</array>
+```
+
+2. **Android** (`android/app/src/main/AndroidManifest.xml`) :
+```xml
+<data android:scheme="nextarget" />
+```
+
+3. **Flutter** (`lib/services/auth_service.dart`) :
+```dart
+callbackUrlScheme: 'nextarget',  // Sans ://
+```
+
+4. **Backend** (`app/api/auth_google.py`) :
+```python
+callback_url = "nextarget://callback"  # Avec ://
+```
+
+**⚠️ IMPORTANT** : Le nom du scheme (`nextarget`) doit être :
+- Unique (pas `myapp`, trop générique)
+- Le même partout (iOS, Android, Flutter, Backend)
+- En minuscules sans espaces
 
 ---
 
