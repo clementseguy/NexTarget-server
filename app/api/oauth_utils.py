@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from ..models.user import User
-from ..core.security import create_access_token
+from ..core.security import create_access_token, create_callback_token
 from ..core.config import get_settings
 
 

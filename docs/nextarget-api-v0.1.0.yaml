@@ -44,6 +44,52 @@ paths:
                     type: string
                     example: ok
 
+  /auth/google/login:
+    get:
+      summary: Initier le flux OAuth Google pour mobile
+      description: |
+        Génère une URL d'autorisation Google avec state et nonce sécurisés pour mobile.
+        
+        **Flow complet mobile** :
+        1. App appelle ce endpoint pour obtenir `auth_url`
+        2. App ouvre `auth_url` dans WebView ou navigateur
+        3. Utilisateur s'authentifie avec Google
+        4. Google redirige vers `/callback` avec code
+        5. Backend échange code contre tokens
+        6. Backend redirige vers `nextarget://callback?token=JWT` (court-vivant, 10 min)
+        7. App intercepte le custom scheme et extrait le token
+        8. App appelle `/auth/token/exchange` pour obtenir un access_token long-vivant (60 min)
+        
+      tags:
+        - auth
+      parameters:
+        - name: session_nonce
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Valeur opaque fournie par le client pour lier la session
+      responses:
+        '200':
+          description: URL d'autorisation Google
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  auth_url:
+                    type: string
+                    example: https://accounts.google.com/o/oauth2/v2/auth?client_id=...
+                  state:
+                    type: string
+                    example: abc123xyz
+        '500':
+          description: Configuration OAuth Google manquante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /auth/google/start:
     get:
       summary: Initier le flux OAuth Google
@@ -82,10 +128,15 @@ paths:
 
   /auth/google/callback:
     get:
-      summary: Callback OAuth Google
+      summary: Callback OAuth Google (Mobile)
       description: |
         Échange le code d'autorisation contre un id_token, vérifie la signature,
-        upsert l'utilisateur dans la base, et retourne un JWT.
+        upsert l'utilisateur dans la base, et redirige vers `nextarget://callback?token=JWT`.
+        
+        **Important** : Ce endpoint fait une redirection HTTP 302 vers le custom scheme mobile.
+        Le token retourné est court-vivant (10 minutes) et doit être échangé immédiatement
+        via `/auth/token/exchange` pour obtenir un access_token long-vivant.
+        
       tags:
         - auth
       parameters:
@@ -102,12 +153,8 @@ paths:
             type: string
           description: State pour validation CSRF
       responses:
-        '200':
-          description: Authentification Google réussie
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthTokenResponse'
+        '302':
+          description: Redirection vers nextarget://callback?token=SHORT_LIVED_JWT
         '400':
           description: Code ou state invalide
           content:
@@ -116,6 +163,86 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Erreur lors de la création utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/token/exchange:
+    post:
+      summary: Échanger callback token contre access token
+      description: |
+        Échange un token de callback court-vivant (10 min) reçu via le custom scheme
+        contre un access token long-vivant (60 min) utilisable pour les API calls.
+        
+        **Flow** :
+        1. App intercepte `nextarget://callback?token=SHORT_JWT`
+        2. App extrait le token de l'URL
+        3. App appelle cet endpoint avec le callback_token
+        4. Backend vérifie et valide le token
+        5. Backend retourne un access_token long-vivant
+        6. App stocke l'access_token de manière sécurisée
+        
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - callback_token
+              properties:
+                callback_token:
+                  type: string
+                  description: Token court-vivant reçu via nextarget://callback
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2ODk1MjM...
+      responses:
+        '200':
+          description: Exchange réussi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  token_type:
+                    type: string
+                    default: bearer
+                    example: bearer
+                  expires_in:
+                    type: integer
+                    description: Durée de validité en secondes (3600 = 60 min)
+                    example: 3600
+                  email:
+                    type: string
+                    format: email
+                    example: user@gmail.com
+                  provider:
+                    type: string
+                    enum: [google, facebook]
+                    example: google
+                  user_id:
+                    type: string
+                    format: uuid
+                    example: 123e4567-e89b-12d3-a456-426614174000
+        '400':
+          description: Token invalide ou payload manquant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Token expiré ou signature invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Utilisateur non trouvé ou inactif
           content:
             application/json:
               schema:

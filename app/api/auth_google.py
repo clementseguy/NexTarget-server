@@ -30,15 +30,24 @@ router = APIRouter(prefix="/auth/google", tags=["auth-google"])
 settings = get_settings()
 
 
-@router.get("/start")
-def google_auth_start(
+@router.get("/login")
+def google_auth_login(
     session_nonce: str = Query(
         None,
         description="Opaque value from client to bind session"
     )
 ) -> dict:
     """
-    Initiate Google OAuth 2.0 authorization flow.
+    Initiate Google OAuth 2.0 authorization flow for mobile.
+    
+    Mobile flow:
+    1. App calls this endpoint to get auth_url
+    2. App opens auth_url in WebView or browser
+    3. User authenticates with Google
+    4. Google redirects to /callback with code
+    5. Backend exchanges code for tokens
+    6. Backend redirects to nextarget://callback?token=JWT
+    7. App intercepts custom scheme and extracts JWT
     
     Args:
         session_nonce: Optional client nonce for session binding
@@ -78,6 +87,21 @@ def google_auth_start(
     }
 
 
+# Keep legacy /start endpoint for backward compatibility
+@router.get("/start")
+def google_auth_start(
+    session_nonce: str = Query(
+        None,
+        description="Opaque value from client to bind session"
+    )
+) -> dict:
+    """
+    Legacy endpoint - use /login instead.
+    Maintained for backward compatibility.
+    """
+    return google_auth_login(session_nonce=session_nonce)
+
+
 @router.get("/callback")
 async def google_auth_callback(
     code: str = Query(..., description="Authorization code from Google"),
@@ -85,7 +109,15 @@ async def google_auth_callback(
     session: Session = Depends(get_session),
 ) -> RedirectResponse:
     """
-    Handle Google OAuth callback and exchange code for tokens.
+    Handle Google OAuth callback and redirect to mobile app.
+    
+    Flow:
+    1. Verify state token (CSRF protection)
+    2. Exchange authorization code for Google tokens
+    3. Verify ID token signature
+    4. Get or create user in database
+    5. Generate short-lived JWT (10 min)
+    6. Redirect to nextarget://callback?token=JWT
     
     Args:
         code: Authorization code from Google
@@ -93,7 +125,7 @@ async def google_auth_callback(
         session: Database session
         
     Returns:
-        Dictionary with access_token, token_type, email, and provider
+        RedirectResponse to nextarget://callback?token=JWT
         
     Raises:
         HTTPException: If state is invalid, token exchange fails, or user creation fails
@@ -171,13 +203,14 @@ async def google_auth_callback(
     # Get or create user
     user = get_or_create_user(session, email, provider="google")
     
-    # Generate JWT token and redirect to custom scheme for mobile app
-    token_response = generate_token_response(user)
-    token_response["provider"] = "google"  # Add provider to response
+    # Generate short-lived callback token (10 minutes)
+    callback_token = create_callback_token(
+        sub=user.id,
+        provider="google",
+        email=user.email
+    )
     
-    # Build redirect URL with token in fragment (# not ? for security)
-    callback_url = "nextarget://callback"
-    fragment = urlencode(token_response)
-    redirect_url = f"{callback_url}#{fragment}"
+    # Redirect to mobile app custom scheme with token as query parameter
+    redirect_url = f"nextarget://callback?token={callback_token}"
     
     return RedirectResponse(url=redirect_url, status_code=302)

@@ -4,35 +4,41 @@ Backend léger pour application mobile : FastAPI + SQLite + OAuth (Google, Faceb
 
 ## Fonctionnalités
 - **Authentification OAuth uniquement** : Google & Facebook
+- **Flow OAuth mobile optimisé** : Custom scheme redirect avec tokens courts-vivants
 - **Aucun stockage de mot de passe** : délégation complète à des IdP externes
 - **Aucune donnée personnelle sensible** : email et provider uniquement
-- JWT bearer tokens (access tokens)
+- JWT bearer tokens (callback: 10 min, access: 60 min)
 - Endpoint protégé `/users/me`
 - Base SQLite via SQLModel (migration future possible vers Postgres)
 - Configuration par variables d'environnement (.env)
+- **Stateless & sécurisé** : CSRF protection, replay protection, signature cryptographique
 
 ## Démarrage rapide
 ```bash
-python -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env  # puis éditez les valeurs
 uvicorn app.main:app --reload
 ```
 Visitez http://127.0.0.1:8000/docs pour la doc interactive.
 
+📖 **Guide détaillé** : [docs/guides/quickstart.md](docs/guides/quickstart.md)
+
 ## Endpoints principaux (v0.1)
 Santé :
 - GET /health
 
-Auth OAuth :
-- GET /auth/google/start
-- GET /auth/google/callback
+Auth OAuth (Mobile Flow) :
+- GET /auth/google/login (recommandé pour mobile)
+- GET /auth/google/start (legacy, alias de /login)
+- GET /auth/google/callback (redirect automatique vers nextarget://)
+- POST /auth/token/exchange (échange callback token → access token)
 - GET /auth/facebook/start
 - GET /auth/facebook/callback
 
 Profil :
 - GET /users/me (JWT requis)
+
+📖 **Guide complet** : [docs/guides/quickstart.md](docs/guides/quickstart.md)
 
 ## Sécurité / Production
 - **Aucun stockage de mot de passe** : authentification déléguée à 100% aux IdP
@@ -159,8 +165,25 @@ Done : Auth OAuth uniquement (Google, Facebook), JWT, stockage minimal (email + 
 - Tests automatisés OAuth (mock providers)
 
 ## Intégrations OAuth
-### Google
-Flux:
+
+### 🎯 Flow OAuth Mobile (Recommandé)
+Optimisé pour applications mobiles (iOS/Android) avec custom scheme redirect :
+
+1. **App** → `GET /auth/google/login` → reçoit `auth_url` + `state`
+2. **App** → Ouvre `auth_url` dans WebView/navigateur
+3. **User** → S'authentifie avec Google
+4. **Google** → Redirige vers `/auth/google/callback` avec `code`
+5. **Backend** → Échange code → vérifie ID token → crée/récupère user
+6. **Backend** → Redirige vers `nextarget://callback?token=SHORT_JWT` (10 min)
+7. **App** → Intercepte custom scheme, extrait `token`
+8. **App** → `POST /auth/token/exchange` avec `callback_token`
+9. **Backend** → Retourne `access_token` (60 min)
+10. **App** → Utilise `access_token` pour les API calls
+
+📖 **Documentation complète** : [docs/tech/architecture.md](docs/tech/architecture.md)
+
+### Google (Web & Mobile)
+Flux legacy (compatible avec mobile flow) :
 1. /auth/google/start : `state` + `nonce` -> URL consent
 2. /auth/google/callback : échange code -> tokens (Google), vérifie id_token (aud, iss, exp)
 3. Upsert user provider=google (password None)
