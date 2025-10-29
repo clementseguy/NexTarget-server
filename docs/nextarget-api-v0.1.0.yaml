@@ -46,11 +46,17 @@ paths:
 
   /auth/google/login:
     get:
-      summary: Initier le flux OAuth Google pour mobile
+      summary: Initier le flux OAuth Google
       description: |
-        Génère une URL d'autorisation Google avec state et nonce sécurisés pour mobile.
+        Génère une URL d'autorisation Google avec state et nonce sécurisés.
         
-        **Flow complet mobile** :
+        **Mode JSON (default - pour apps natives)** :
+        Retourne `{"auth_url": "...", "state": "..."}` - conforme RFC 8252
+        
+        **Mode Redirect (pour web)** :
+        Redirige (HTTP 302) directement vers Google OAuth
+        
+        **Flow mobile (mode=json)** :
         1. App appelle ce endpoint pour obtenir `auth_url`
         2. App ouvre `auth_url` dans WebView ou navigateur
         3. Utilisateur s'authentifie avec Google
@@ -59,6 +65,12 @@ paths:
         6. Backend redirige vers `nextarget://callback?token=JWT` (court-vivant, 10 min)
         7. App intercepte le custom scheme et extrait le token
         8. App appelle `/auth/token/exchange` pour obtenir un access_token long-vivant (60 min)
+        
+        **Flow web (mode=redirect)** :
+        1. Navigateur accède à cet endpoint
+        2. Serveur redirige (302) vers Google OAuth
+        3. Utilisateur s'authentifie
+        4. Google redirige vers `/callback`
         
       tags:
         - auth
@@ -69,9 +81,20 @@ paths:
           schema:
             type: string
           description: Valeur opaque fournie par le client pour lier la session
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [json, redirect]
+            default: json
+          description: |
+            Mode de réponse:
+            - `json` (default): Retourne JSON avec auth_url (pour apps natives)
+            - `redirect`: Redirige HTTP 302 vers Google (pour web)
       responses:
         '200':
-          description: URL d'autorisation Google
+          description: URL d'autorisation Google (mode=json)
           content:
             application/json:
               schema:
@@ -83,6 +106,8 @@ paths:
                   state:
                     type: string
                     example: abc123xyz
+        '302':
+          description: Redirection vers Google OAuth (mode=redirect)
         '500':
           description: Configuration OAuth Google manquante
           content:

@@ -35,12 +35,20 @@ def google_auth_login(
     session_nonce: str = Query(
         None,
         description="Opaque value from client to bind session"
+    ),
+    mode: str = Query(
+        "json",
+        description="Response mode: 'json' (default, returns auth_url) or 'redirect' (302 redirect)"
     )
-) -> dict:
+):
     """
-    Initiate Google OAuth 2.0 authorization flow for mobile.
+    Initiate Google OAuth 2.0 authorization flow.
     
-    Mobile flow:
+    Supports two modes:
+    - mode=json (default): Returns JSON with auth_url - for native mobile apps (RFC 8252)
+    - mode=redirect: HTTP 302 redirect to Google - for web applications
+    
+    Mobile flow (mode=json):
     1. App calls this endpoint to get auth_url
     2. App opens auth_url in WebView or browser
     3. User authenticates with Google
@@ -49,11 +57,19 @@ def google_auth_login(
     6. Backend redirects to nextarget://callback?token=JWT
     7. App intercepts custom scheme and extracts JWT
     
+    Web flow (mode=redirect):
+    1. Browser navigates to this endpoint
+    2. Server redirects (302) to Google OAuth
+    3. User authenticates
+    4. Google redirects to /callback
+    
     Args:
         session_nonce: Optional client nonce for session binding
+        mode: Response mode - 'json' (default) or 'redirect'
         
     Returns:
-        Dictionary with auth_url and state for client redirect
+        - If mode=json: Dictionary with auth_url and state
+        - If mode=redirect: RedirectResponse to Google OAuth
         
     Raises:
         HTTPException: If Google OAuth is not configured
@@ -81,6 +97,11 @@ def google_auth_login(
     
     auth_url = f"{GOOGLE_AUTH_ENDPOINT}?{urlencode(params)}"
     
+    # Mode redirect: HTTP 302 pour applications web
+    if mode == "redirect":
+        return RedirectResponse(url=auth_url, status_code=302)
+    
+    # Mode json (default): Retourne l'URL pour applications natives (RFC 8252)
     return {
         "auth_url": auth_url,
         "state": state,
