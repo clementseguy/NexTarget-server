@@ -11,6 +11,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
 from ..core.config import get_settings
+from ..core.security import create_callback_token
 from ..core.oauth_config import (
     GOOGLE_AUTH_ENDPOINT,
     GOOGLE_TOKEN_ENDPOINT,
