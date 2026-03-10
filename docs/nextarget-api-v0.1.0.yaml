@@ -354,7 +354,7 @@ paths:
   /users/me:
     get:
       summary: Obtenir le profil utilisateur courant
-      description: Retourne les informations de l'utilisateur authentifié via JWT
+      description: Retourne les informations complètes de l'utilisateur authentifié via JWT (incluant profil, avatar, expérience et date d'inscription)
       tags:
         - users
       security:
@@ -368,6 +368,59 @@ paths:
                 $ref: '#/components/schemas/UserPublic'
         '401':
           description: Token manquant ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/me/profile:
+    patch:
+      summary: Modifier le profil utilisateur
+      description: |
+        Met à jour les champs modifiables du profil de l'utilisateur authentifié.
+        Seuls les champs présents dans le body sont mis à jour (merge partiel).
+        
+        - `display_name` : définir un pseudo personnalisé. Envoyer `null` pour revenir au nom fourni par l'IdP au prochain login.
+        - `experience_level` : choisir son niveau (`beginner`, `advanced`, `expert`). Envoyer `null` pour réinitialiser.
+      tags:
+        - users
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileUpdate'
+            examples:
+              update_name:
+                summary: Modifier le pseudo
+                value:
+                  display_name: "Mon Pseudo"
+              update_level:
+                summary: Choisir son niveau
+                value:
+                  experience_level: "advanced"
+              update_both:
+                summary: Modifier pseudo et niveau
+                value:
+                  display_name: "Pro Player"
+                  experience_level: "expert"
+      responses:
+        '200':
+          description: Profil mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPublic'
+        '401':
+          description: Token manquant ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Erreur de validation (display_name trop long, experience_level invalide)
           content:
             application/json:
               schema:
@@ -432,6 +485,46 @@ components:
           type: string
           enum: [google, facebook]
           example: google
+        display_name:
+          type: string
+          nullable: true
+          example: Alice Dupont
+          description: Nom affiché (initialisé depuis l'IdP, modifiable par l'utilisateur)
+        avatar_url:
+          type: string
+          nullable: true
+          format: uri
+          example: https://lh3.googleusercontent.com/a/photo.jpg
+          description: URL de la photo de profil (depuis l'IdP, rafraîchie à chaque login)
+        experience_level:
+          type: string
+          nullable: true
+          enum: [beginner, advanced, expert]
+          example: beginner
+          description: Niveau d'expérience choisi par l'utilisateur
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-10-21T14:30:00Z"
+          description: Date d'inscription
+
+    UserProfileUpdate:
+      type: object
+      description: Champs modifiables du profil utilisateur. Seuls les champs envoyés sont mis à jour.
+      properties:
+        display_name:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 100
+          example: Mon Pseudo
+          description: Nom affiché (null pour revenir au nom IdP au prochain login)
+        experience_level:
+          type: string
+          nullable: true
+          enum: [beginner, advanced, expert]
+          example: advanced
+          description: Niveau d'expérience
 
     ErrorResponse:
       type: object
