@@ -15,15 +15,23 @@ from ..core.config import get_settings
 def get_or_create_user(
     session: Session,
     email: str,
-    provider: str
+    provider: str,
+    display_name: Optional[str] = None,
+    avatar_url: Optional[str] = None,
 ) -> User:
     """
     Get existing user or create new one for OAuth provider.
+    
+    On creation, initializes display_name and avatar_url from IdP data.
+    On existing user login, refreshes avatar_url unconditionally and
+    display_name only if the user hasn't customized it.
     
     Args:
         session: Database session
         email: User's email address
         provider: OAuth provider name (e.g., "google", "facebook")
+        display_name: Display name from IdP (optional)
+        avatar_url: Avatar URL from IdP (optional)
         
     Returns:
         User instance (existing or newly created)
@@ -40,10 +48,27 @@ def get_or_create_user(
     ).first()
     
     if user:
+        # Refresh IdP data on existing user login
+        changed = False
+        if avatar_url is not None:
+            user.avatar_url = avatar_url
+            changed = True
+        if display_name is not None and not user.display_name_custom:
+            user.display_name = display_name
+            changed = True
+        if changed:
+            session.add(user)
+            session.commit()
+            session.refresh(user)
         return user
     
     # Create new user
-    user = User(email=email, provider=provider)
+    user = User(
+        email=email,
+        provider=provider,
+        display_name=display_name,
+        avatar_url=avatar_url,
+    )
     session.add(user)
     
     try:

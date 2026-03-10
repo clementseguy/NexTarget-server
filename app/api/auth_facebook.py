@@ -142,7 +142,7 @@ async def facebook_auth_callback(
     
     # Fetch user information from Facebook Graph API
     user_params = {
-        "fields": "id,email",
+        "fields": "id,email,name,picture.width(200)",
         "access_token": access_token,
     }
     
@@ -170,8 +170,16 @@ async def facebook_auth_callback(
     # Handle email (user can hide email permission)
     email = user_info.get("email") or f"fb_{facebook_id}@example.local"
     
+    # Extract profile information from Graph API
+    name = user_info.get("name")
+    picture_data = user_info.get("picture", {})
+    picture_url = picture_data.get("data", {}).get("url") if isinstance(picture_data, dict) else None
+    
     # Get or create user
-    user = get_or_create_user(session, email, provider="facebook")
+    user = get_or_create_user(
+        session, email, provider="facebook",
+        display_name=name, avatar_url=picture_url,
+    )
     
     # Generate JWT token and redirect to custom scheme for mobile app
     token_response = generate_token_response(user)

@@ -222,8 +222,15 @@ async def google_auth_callback(
             detail="Missing email or sub in id_token"
         )
     
+    # Extract profile information from id_token (scope: profile)
+    name = id_token_claims.get("name")
+    picture = id_token_claims.get("picture")
+    
     # Get or create user
-    user = get_or_create_user(session, email, provider="google")
+    user = get_or_create_user(
+        session, email, provider="google",
+        display_name=name, avatar_url=picture,
+    )
     
     # Generate short-lived callback token (10 minutes)
     callback_token = create_callback_token(
