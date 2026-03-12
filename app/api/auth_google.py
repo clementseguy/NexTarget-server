@@ -109,21 +109,6 @@ def google_auth_login(
     }
 
 
-# Keep legacy /start endpoint for backward compatibility
-@router.get("/start")
-def google_auth_start(
-    session_nonce: str = Query(
-        None,
-        description="Opaque value from client to bind session"
-    )
-) -> dict:
-    """
-    Legacy endpoint - use /login instead.
-    Maintained for backward compatibility.
-    """
-    return google_auth_login(session_nonce=session_nonce)
-
-
 @router.get("/callback")
 async def google_auth_callback(
     code: str = Query(..., description="Authorization code from Google"),
