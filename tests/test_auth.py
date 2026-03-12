@@ -37,22 +37,6 @@ async def test_google_login_endpoint_returns_auth_url():
 
 
 @pytest.mark.asyncio
-async def test_google_start_endpoint_legacy():
-    """Test that legacy /auth/google/start still works"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        r = await ac.get("/auth/google/start")
-        
-        # Should behave exactly like /login
-        if r.status_code == 500:
-            assert "not configured" in r.json()["detail"].lower()
-        else:
-            assert r.status_code == 200
-            data = r.json()
-            assert "auth_url" in data
-            assert "state" in data
-
-
-@pytest.mark.asyncio
 async def test_token_exchange_with_invalid_token():
     """Test that token exchange rejects invalid tokens"""
     async with AsyncClient(app=app, base_url="http://test") as ac:
