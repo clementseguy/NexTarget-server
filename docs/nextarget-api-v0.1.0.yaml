@@ -14,8 +14,8 @@ info:
 servers:
   - url: http://localhost:8000
     description: Développement local
-  - url: https://nextarget-api.onrender.com
-    description: Production (Render.com)
+  - url: https://nextarget-server.onrender.com
+    description: Production
 
 tags:
   - name: health
@@ -108,42 +108,6 @@ paths:
                     example: abc123xyz
         '302':
           description: Redirection vers Google OAuth (mode=redirect)
-        '500':
-          description: Configuration OAuth Google manquante
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /auth/google/start:
-    get:
-      summary: Initier le flux OAuth Google
-      description: |
-        Génère une URL d'autorisation Google avec state et nonce sécurisés.
-        Le client doit rediriger l'utilisateur vers `auth_url` retourné.
-      tags:
-        - auth
-      parameters:
-        - name: session_nonce
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Valeur opaque fournie par le client pour lier la session
-      responses:
-        '200':
-          description: URL d'autorisation Google
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  auth_url:
-                    type: string
-                    example: https://accounts.google.com/o/oauth2/v2/auth?client_id=...
-                  state:
-                    type: string
-                    example: abc123xyz
         '500':
           description: Configuration OAuth Google manquante
           content:
@@ -311,11 +275,16 @@ paths:
 
   /auth/facebook/callback:
     get:
-      summary: Callback OAuth Facebook
+      summary: Callback OAuth Facebook (Mobile)
       description: |
-        Échange le code d'autorisation contre un access_token, récupère les infos utilisateur (/me),
-        upsert l'utilisateur, et retourne un JWT.
-        Si l'email est manquant (utilisateur a refusé), utilise un email de fallback.
+        Échange le code d'autorisation contre un access_token Facebook, récupère les infos
+        utilisateur via Graph API (/me), upsert l'utilisateur dans la base, et redirige
+        vers le custom scheme mobile.
+        
+        Si l'email est manquant (utilisateur a refusé la permission), un email de fallback est utilisé.
+        
+        **Important** : Ce endpoint fait une redirection HTTP 302 vers le custom scheme mobile,
+        de la même manière que le callback Google.
       tags:
         - auth
       parameters:
@@ -332,12 +301,8 @@ paths:
             type: string
           description: State pour validation CSRF
       responses:
-        '200':
-          description: Authentification Facebook réussie
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OAuthTokenResponse'
+        '302':
+          description: Redirection vers nextarget://callback avec token
         '400':
           description: Code ou state invalide
           content:
@@ -437,36 +402,6 @@ components:
         Format: `Authorization: Bearer <token>`
 
   schemas:
-    TokenResponse:
-      type: object
-      properties:
-        access_token:
-          type: string
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        token_type:
-          type: string
-          default: bearer
-          example: bearer
-
-    OAuthTokenResponse:
-      type: object
-      properties:
-        access_token:
-          type: string
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        token_type:
-          type: string
-          default: bearer
-          example: bearer
-        email:
-          type: string
-          format: email
-          example: user@gmail.com
-        provider:
-          type: string
-          enum: [google, facebook]
-          example: google
-
     UserPublic:
       type: object
       properties:
