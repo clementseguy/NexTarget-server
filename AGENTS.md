@@ -125,7 +125,7 @@ Critiques. Ne jamais introduire de régression.
 1. **Aucun mot de passe** : backend OAuth-only côté auth. Ne jamais ajouter d'auth locale (email/password).
 2. **State tokens usage unique** : chaque state CSRF est consommé (supprimé) après vérification.
 3. **Vérification du type de token JWT** : toujours vérifier `payload["type"]` (`access`/`callback`). Un callback token ne donne jamais accès à l'API.
-4. **Vérification `id_token` Google** via la lib officielle `google-auth` (signature, audience, issuer, expiration).
+4. **Vérification `id_token` Google** via la lib officielle `google-auth` (signature, audience, issuer, expiration) **+ vérification du nonce OIDC** contre celui stocké avec le state (NT-066) — ne jamais retirer ce contrôle.
 5. **Timeouts** sur toute requête HTTP externe : `OAUTH_TIMEOUT_SECONDS` (15 s) pour les IdP ; `mistral_timeout_seconds` (30 s) pour Mistral.
 6. **Secrets en variables d'environnement** uniquement (`Settings` + `.env`). Jamais dans le code. Sur Render, les secrets sont `sync: false` (définis à la main) — inclut `MISTRAL_API_KEY`.
 7. **Coach = données minimales + protégé** : l'endpoint exige un JWT (`get_current_user`). Ne jamais renvoyer au client la clé Mistral **ni le prompt complet**, et ne pas les logguer. Le client n'envoie que les données de session.
@@ -166,7 +166,6 @@ Critiques. Ne jamais introduire de régression.
 - **Pas de logging structuré / tracing** encore (backlog NT-053).
 - **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
 - **`@app.on_event("startup")`** : legacy FastAPI, migration vers lifespan non prioritaire.
-- **Nonce Google généré mais non vérifié** dans le callback — amélioration identifiée (backlog NT-066, `SECURITY_ANALYSIS.md`).
 - **Coach mono-persona** aujourd'hui (`coach_neutre.yaml`) : le multi-persona est scaffoldé (`_VARIANT_FILES`, `prompt_variant`) mais non livré (backlog NT-032).
 
 ## Commandes de référence

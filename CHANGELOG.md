@@ -12,6 +12,10 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   middleware (`*` en dev, aucune origine hors dev, surcharge via
   `CORS_ALLOW_ORIGINS` en liste séparée par des virgules). `.env.example` et
   `render.yaml` documentés. Tests dédiés (`tests/test_cors.py`).
+- NT-066 : vérification du nonce OIDC Google dans le callback — le claim
+  `nonce` de l'id_token doit égaler le nonce stocké avec le state (400
+  `Invalid nonce` sinon, absence = rejet). Premier jeu de tests OAuth avec
+  provider mocké (`tests/test_auth_google_nonce.py`), base pour NT-054.
 
 ## [0.1.0] - 2025-10-21
 
