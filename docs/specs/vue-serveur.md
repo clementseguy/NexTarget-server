@@ -33,7 +33,7 @@
 | NT-054 | Tests OAuth mockés | server | Should | M | À FAIRE | `tests/` basiques présents |
 | NT-055 | CI serveur (tests + couverture) | server | Should | S | À FAIRE | pas de `.github/` |
 | NT-060 | Proxy Mistral (clé hors client) | server | Must | M | FAIT | `app/services/mistral_client.py`, `app/core/config.py` |
-| NT-061 | Coach connecté uniquement + rotation clé | both | Must | M | EN COURS | serveur = proxy livré ; rotation clé à faire |
+| NT-061 | Coach connecté uniquement + rotation clé | both | Must | M | FAIT | code livré (S1) ; rotation clé = action manuelle |
 | NT-062 | Rate limiting endpoint coach | server | Must | S | FAIT | `app/services/rate_limiter.py` (10/5min) |
 | NT-063 | State OAuth à usage unique (CSRF) | server | Must | S | FAIT | `app/services/oauth_state.py` |
 | NT-064 | Vérification du type de token JWT | server | Must | S | FAIT | `app/core/security.py`, `app/api/deps.py` |
@@ -45,8 +45,8 @@
 
 ## Prochaines actions serveur (hors FAIT), par priorité
 
-- **Must** — NT-061 (rotation de la clé Mistral une fois le client sevré).
-- **Should** — NT-048, NT-053, NT-054, NT-055, NT-065, NT-066, NT-071, NT-032/NT-033.
+- **Must** — (aucun ; la rotation manuelle de la clé Mistral reste à faire côté ops, cf. NT-061).
+- **Should** — NT-048, NT-053, NT-054, NT-055, NT-071, NT-032/NT-033.
 - **Won't-now** — NT-045, NT-046, NT-047, NT-006.
 
 ## Note de cohérence documentaire
