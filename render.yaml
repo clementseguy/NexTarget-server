@@ -35,3 +35,10 @@ services:
         sync: false
       - key: FACEBOOK_REDIRECT_URI
         sync: false
+      # Coach IA - Mistral (proxy /coach/analyze-session) - clé à définir manuellement
+      - key: MISTRAL_API_KEY
+        sync: false  # Doit être défini manuellement (ne jamais commiter la clé)
+      - key: MISTRAL_API_BASE
+        value: https://api.mistral.ai/v1
+      - key: MISTRAL_MODEL
+        value: mistral-small-latest

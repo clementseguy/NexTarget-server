@@ -24,6 +24,8 @@ tags:
     description: Authentification et gestion OAuth
   - name: users
     description: Gestion du profil utilisateur
+  - name: coach
+    description: Analyse coach IA (proxy Mistral, aucune clé/prompt côté client)
 
 paths:
   /health:
@@ -391,6 +393,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /coach/analyze-session:
+    post:
+      summary: Analyser une session de tir (coach IA)
+      description: |
+        Proxifie l'analyse vers Mistral : le serveur construit le prompt et
+        appelle Mistral avec sa propre clé API. Le client n'envoie que les
+        données de la session, jamais de clé ni de prompt complet.
+
+        Endpoint protégé (JWT obligatoire) : le coach IA est réservé aux
+        utilisateurs connectés. Limité à 10 requêtes / 5 minutes par
+        utilisateur (protection contre l'abus, l'appel Mistral a un coût).
+      tags:
+        - coach
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeSessionRequest'
+      responses:
+        '200':
+          description: Analyse générée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeSessionResponse'
+        '401':
+          description: Token manquant ou invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Données de session invalides ou prompt_variant inconnu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Trop de requêtes (rate limit utilisateur)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Erreur ou timeout côté Mistral
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -402,6 +457,78 @@ components:
         Format: `Authorization: Bearer <token>`
 
   schemas:
+    SeriesIn:
+      type: object
+      required: [shot_count]
+      properties:
+        shot_count:
+          type: integer
+          example: 5
+        distance:
+          type: number
+          nullable: true
+          example: 25
+        points:
+          type: number
+          nullable: true
+          example: 45
+        group_size_cm:
+          type: number
+          nullable: true
+          example: 8.5
+        comment:
+          type: string
+          nullable: true
+          example: "stable"
+
+    SessionIn:
+      type: object
+      properties:
+        weapon:
+          type: string
+          nullable: true
+          example: "Glock 17"
+        caliber:
+          type: string
+          nullable: true
+          example: "9mm"
+        date:
+          type: string
+          format: date-time
+          nullable: true
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesIn'
+        synthese:
+          type: string
+          nullable: true
+          example: "RAS"
+
+    AnalyzeSessionRequest:
+      type: object
+      required: [session]
+      properties:
+        session:
+          $ref: '#/components/schemas/SessionIn'
+        prompt_variant:
+          type: string
+          default: coach_neutre
+          description: Persona du coach (multi-persona prévue au backlog ; seule "coach_neutre" existe à date)
+
+    AnalyzeSessionResponse:
+      type: object
+      properties:
+        analysis:
+          type: string
+          example: "Priorité 1 : régularité du groupement..."
+        model:
+          type: string
+          example: "mistral-small-latest"
+        generated_at:
+          type: string
+          format: date-time
+
     UserPublic:
       type: object
       properties:
