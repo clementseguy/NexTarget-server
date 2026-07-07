@@ -37,7 +37,7 @@
 | NT-062 | Rate limiting endpoint coach | server | Must | S | FAIT | `app/services/rate_limiter.py` (10/5min) |
 | NT-063 | State OAuth à usage unique (CSRF) | server | Must | S | FAIT | `app/services/oauth_state.py` |
 | NT-064 | Vérification du type de token JWT | server | Must | S | FAIT | `app/core/security.py`, `app/api/deps.py` |
-| NT-065 | Restreindre CORS par environnement | server | Should | S | À FAIRE | `app/main.py` (`allow_origins=["*"]`) |
+| NT-065 | Restreindre CORS par environnement | server | Should | S | FAIT | `CORS_ALLOW_ORIGINS` ; défaut : `*` en dev, aucune origine sinon |
 | NT-066 | Vérification du nonce Google | server | Should | S | À FAIRE | cf. `docs/reviews/SECURITY_ANALYSIS.md` |
 | NT-070 | Déploiement serveur (Render) | server | Must | S | FAIT | `render.yaml`, `docs/tech/render_setup.md` |
 | NT-071 | Migration SQLite → Postgres + Alembic | server | Should | M | À FAIRE | débloque multi-instance (NT-062/063) |

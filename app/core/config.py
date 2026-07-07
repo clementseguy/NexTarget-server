@@ -1,11 +1,26 @@
 from pydantic import BaseSettings, Field
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional
 
 class Settings(BaseSettings):
     app_name: str = "NexTarget API"
     environment: str = "dev"
     debug: bool = True
+
+    # CORS (NT-065): comma-separated list of allowed origins.
+    # If unset, defaults depend on the environment:
+    #   - dev: ["*"] (permissive, local tooling / Swagger UI)
+    #   - anything else (e.g. production): [] — no cross-origin browser
+    #     access. The mobile app is unaffected (native HTTP calls do not
+    #     send an Origin header); add a web client origin here if one
+    #     ever exists.
+    cors_allow_origins: Optional[str] = Field(default=None, env="CORS_ALLOW_ORIGINS")
+
+    @property
+    def cors_origins(self) -> List[str]:
+        if self.cors_allow_origins is not None:
+            return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+        return ["*"] if self.environment == "dev" else []
 
     # Security / Auth
     jwt_secret_key: str = Field(..., env="JWT_SECRET_KEY")

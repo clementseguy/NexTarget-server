@@ -5,6 +5,14 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Unreleased] — Sprint S1 (Sécurité & Qualité)
+
+### 🔒 Sécurité
+- NT-065 : CORS restreint par environnement — `Settings.cors_origins` pilote le
+  middleware (`*` en dev, aucune origine hors dev, surcharge via
+  `CORS_ALLOW_ORIGINS` en liste séparée par des virgules). `.env.example` et
+  `render.yaml` documentés. Tests dédiés (`tests/test_cors.py`).
+
 ## [0.1.0] - 2025-10-21
 
 ### 🎉 Ajouté - OAuth2 Mobile Flow

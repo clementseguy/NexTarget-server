@@ -9,10 +9,12 @@ settings = get_settings()
 
 app = FastAPI(title=settings.app_name, debug=settings.debug)
 
-# CORS: adjust origins per your mobile app domains / dev hosts
+# CORS (NT-065): origins are environment-driven — "*" in dev, none in
+# production unless CORS_ALLOW_ORIGINS is explicitly configured.
+# See Settings.cors_origins in core/config.py.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: restreindre en prod
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -131,7 +131,7 @@ Critiques. Ne jamais introduire de régression.
 7. **Coach = données minimales + protégé** : l'endpoint exige un JWT (`get_current_user`). Ne jamais renvoyer au client la clé Mistral **ni le prompt complet**, et ne pas les logguer. Le client n'envoie que les données de session.
 8. **Rate limiting sur les endpoints coûteux** (appels Mistral) : conserver `coach_rate_limiter` (429 au-delà). Ne pas exposer un endpoint IA sans limite.
 9. **Pas d'info interne dans les erreurs HTTP** : pas de stack trace, nom de table ou détail d'implémentation vers le client.
-10. **CORS** : `allow_origins=["*"]` est un TODO connu (dev). À restreindre par environnement en prod (voir backlog NT-065). Ne pas élargir les autres paramètres CORS.
+10. **CORS** : origines pilotées par l'environnement (NT-065, `Settings.cors_origins`) — `*` en dev, **aucune origine** hors dev sauf `CORS_ALLOW_ORIGINS` explicite. Ne pas relâcher ce comportement ni élargir les autres paramètres CORS.
 
 ## Tests
 
