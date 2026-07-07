@@ -5,6 +5,14 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Unreleased] — Sprint S2 (Demo-ready)
+
+### 🎉 Ajouté
+- NT-032 : multi-personas coach — nouvelle variante `coach_cool`
+  (`app/prompts/coach_cool.yaml`, ton décontracté/encourageant, mêmes règles
+  d'analyse mesurables), enregistrée dans `_VARIANT_FILES`. Sélection côté app
+  via `prompt_variant` (contrat d'API inchangé, défaut `coach_neutre`).
+
 ## [Unreleased] — Sprint S1 (Sécurité & Qualité)
 
 ### 🔒 Sécurité

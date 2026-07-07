@@ -68,6 +68,7 @@ app/
     rate_limiter.py    # Rate limiting en mémoire (fenêtre glissante par user)
   prompts/
     coach_neutre.yaml  # Template de prompt (persona « neutre »)
+    coach_cool.yaml    # Template de prompt (persona « cool », NT-032)
 tests/
   test_auth.py         # Tests OAuth / users
   test_coach.py        # Tests endpoint coach
@@ -166,7 +167,6 @@ Critiques. Ne jamais introduire de régression.
 - **Pas de logging structuré / tracing** encore (backlog NT-053).
 - **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
 - **`@app.on_event("startup")`** : legacy FastAPI, migration vers lifespan non prioritaire.
-- **Coach mono-persona** aujourd'hui (`coach_neutre.yaml`) : le multi-persona est scaffoldé (`_VARIANT_FILES`, `prompt_variant`) mais non livré (backlog NT-032).
 
 ## Commandes de référence
 

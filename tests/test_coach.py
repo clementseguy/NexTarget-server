@@ -120,3 +120,44 @@ async def test_analyze_session_rate_limited_after_threshold():
                 statuses.append(r.status_code)
     assert statuses[-1] == 429
     assert statuses.count(200) == 10
+
+
+@pytest.mark.asyncio
+async def test_analyze_session_accepts_coach_cool_variant():
+    """NT-032: the 'coach_cool' persona is a valid prompt variant."""
+    user = _make_user()
+    token = create_access_token(sub=user.id)
+
+    payload = dict(VALID_PAYLOAD)
+    payload["prompt_variant"] = "coach_cool"
+
+    with patch("app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="Analyse cool.")):
+        async with AsyncClient(app=app, base_url="http://test") as ac:
+            r = await ac.post(
+                "/coach/analyze-session",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    assert r.status_code == 200
+    assert r.json()["analysis"] == "Analyse cool."
+
+
+def test_prompt_builder_variants_produce_distinct_prompts():
+    """NT-032: both personas load and assemble distinct templates."""
+    from app.schemas.coach import SessionIn, SeriesIn
+    from app.services.prompt_builder import build_prompt
+
+    session = SessionIn(
+        weapon="Glock 17",
+        caliber="9mm",
+        series=[SeriesIn(shot_count=5, distance=25, points=45, group_size_cm=8.5, comment="stable")],
+        synthese="RAS",
+    )
+    neutral = build_prompt(session, "coach_neutre")
+    cool = build_prompt(session, "coach_cool")
+
+    assert neutral != cool
+    # Les données de session sont présentes dans les deux variantes.
+    for prompt in (neutral, cool):
+        assert "Glock 17" in prompt
+        assert "Groupement=8.5cm" in prompt

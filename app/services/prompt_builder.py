@@ -15,10 +15,10 @@ from ..schemas.coach import SessionIn
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
-# Mapping prompt_variant -> fichier yaml. Prévu pour la future
-# multi-persona (backlog "plusieurs coachs" : neutre / cool).
+# Mapping prompt_variant -> fichier yaml (multi-persona, NT-032).
 _VARIANT_FILES: Dict[str, str] = {
     "coach_neutre": "coach_neutre.yaml",
+    "coach_cool": "coach_cool.yaml",
 }
 
 
