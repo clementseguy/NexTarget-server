@@ -7,7 +7,6 @@ Ces variables sont configurées automatiquement au premier déploiement :
 
 | Variable | Valeur | Description |
 |----------|--------|-------------|
-| `PYTHON_VERSION` | `3.9` | Version Python |
 | `ACCESS_TOKEN_EXP_MINUTES` | `60` | Durée validité JWT (minutes) |
 | `DATABASE_URL` | `sqlite:///./data.db` | URL base de données |
 | `ENVIRONMENT` | `production` | Environnement |
@@ -57,7 +56,19 @@ Ces variables sont configurées automatiquement au premier déploiement :
 
 ## 📝 Procédure d'Ajout sur Render
 
-### Via Dashboard (Recommandé)
+### Configuration Initiale Requise
+
+⚠️ **IMPORTANT** : Après le premier déploiement, configurer dans le Dashboard Render :
+
+1. **Start Command** (Settings → Build & Deploy)
+   - Valeur : `python start.py`
+   - Cette commande est **requise** pour que le service bind correctement sur `0.0.0.0:$PORT`
+
+2. **Python Version** (détecté automatiquement)
+   - Fichier `.python-version` à la racine définit la version : `3.11.9`
+   - Nécessaire pour compatibilité avec Pydantic v1
+
+### Variables d'Environnement OAuth (Recommandé)
 
 1. Aller sur votre service Render
 2. Onglet **"Environment"**
@@ -72,6 +83,8 @@ Ces variables sont configurées automatiquement au premier déploiement :
 ### Via render.yaml (Pour info uniquement)
 
 Les variables sont déjà déclarées dans `render.yaml` avec `sync: false`, ce qui signifie qu'elles doivent être définies manuellement et ne seront pas écrasées lors des redéploiements.
+
+**Note** : La propriété `startCommand` dans `render.yaml` est ignorée par Render. Utilisez le Dashboard UI.
 
 ---
 

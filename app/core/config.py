@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(..., env="JWT_SECRET_KEY")
     jwt_algorithm: str = "HS256"
     access_token_exp_minutes: int = 60
+    callback_token_exp_minutes: int = 10  # Short-lived token for OAuth callback
 
     # Database
     database_url: str = "sqlite:///./data.db"
