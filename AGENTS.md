@@ -70,7 +70,11 @@ app/
     coach_neutre.yaml  # Template de prompt (persona « neutre »)
     coach_cool.yaml    # Template de prompt (persona « cool », NT-032)
 tests/
+  conftest.py          # Fixtures partagées (client ASGI, reset_db, mocks providers)
   test_auth.py         # Tests OAuth / users
+  test_auth_google_nonce.py  # Nonce OIDC Google (NT-066)
+  test_oauth_flows.py  # Flows OAuth complets mockés Google/Facebook (NT-054)
+  test_cors.py         # CORS par environnement (NT-065)
   test_coach.py        # Tests endpoint coach
 docs/
   specs/               # vue-serveur (projection backlog), pointeur backlog, _archive
@@ -137,9 +141,10 @@ Critiques. Ne jamais introduire de régression.
 ## Tests
 
 - **Framework** : pytest + httpx `AsyncClient` + `anyio`. Config `pytest.ini` (`asyncio_mode = auto`, `pythonpath = .`, `-q`).
-- **Lancement** : `pytest` depuis la racine.
-- **Fixture DB** : `reset_db()` (autouse) → drop_all + create_all entre chaque test.
-- **Pattern endpoint** : `async with AsyncClient(app=app, base_url="http://test") as ac:`.
+- **Lancement** : `pytest` depuis la racine ; couverture : `pytest --cov=app` (CI, NT-055).
+- **Fixtures partagées** : `tests/conftest.py` — `reset_db` (autouse), `client()` (AsyncClient via `ASGITransport`, jamais le raccourci déprécié `app=`), `google_configured`/`facebook_configured`, helpers de mock HTTP (`mock_async_http_client`, `http_response`).
+- **Pattern endpoint** : `async with client() as ac:` (import depuis `tests.conftest`).
+- **OAuth** : providers **toujours mockés** (`tests/test_oauth_flows.py`, NT-054) — aucun appel réseau réel vers Google/Facebook dans les tests.
 - **Coach** : mocker `mistral_client.fetch_analysis` (ne jamais appeler la vraie API Mistral dans les tests) ; couvrir 200, 401 (non authentifié), 422 (variante inconnue), 429 (rate limit).
 - **OAuth non configuré** : les tests gèrent l'absence des env vars OAuth (assertion `"not configured"`).
 - Tout nouveau endpoint ou changement de logique → test : **cas nominal + cas d'erreur** au minimum.

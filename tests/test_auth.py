@@ -1,19 +1,11 @@
 import pytest
-from httpx import AsyncClient
-from sqlmodel import SQLModel
-from app.main import app
-from app.services.database import engine
 
-@pytest.fixture(autouse=True, scope="function")
-def reset_db():
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
-    yield
+from tests.conftest import client
 
 @pytest.mark.asyncio
 async def test_health_endpoint():
     """Test that health endpoint works"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.get("/health")
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
@@ -21,7 +13,7 @@ async def test_health_endpoint():
 @pytest.mark.asyncio
 async def test_google_login_endpoint_returns_auth_url():
     """Test that /auth/google/login returns a valid auth URL"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.get("/auth/google/login")
         
         # Should return 500 if not configured, or 200 with auth_url if configured
@@ -39,7 +31,7 @@ async def test_google_login_endpoint_returns_auth_url():
 @pytest.mark.asyncio
 async def test_token_exchange_with_invalid_token():
     """Test that token exchange rejects invalid tokens"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.post(
             "/auth/token/exchange",
             json={"callback_token": "invalid.token.here"}
@@ -57,7 +49,7 @@ async def test_token_exchange_with_wrong_token_type():
     # Create a regular access token (not a callback token)
     access_token = create_access_token(sub="test-user-id")
     
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.post(
             "/auth/token/exchange",
             json={"callback_token": access_token}
@@ -170,7 +162,7 @@ async def test_get_me_returns_profile_fields():
         experience_level="beginner",
     )
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.get(
             "/users/me",
             headers={"Authorization": f"Bearer {token}"},
@@ -196,7 +188,7 @@ async def test_get_me_with_null_profile_fields():
         experience_level=None,
     )
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.get(
             "/users/me",
             headers={"Authorization": f"Bearer {token}"},
@@ -220,7 +212,7 @@ async def test_patch_profile_update_display_name():
     session = _get_test_session()
     user, token = _create_test_user(session)
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.patch(
             "/users/me/profile",
             headers={"Authorization": f"Bearer {token}"},
@@ -240,7 +232,7 @@ async def test_patch_profile_display_name_sets_custom_flag():
     user, token = _create_test_user(session)
     assert user.display_name_custom is False
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         await ac.patch(
             "/users/me/profile",
             headers={"Authorization": f"Bearer {token}"},
@@ -262,7 +254,7 @@ async def test_patch_profile_display_name_null_resets_custom_flag():
     session.add(user)
     session.commit()
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.patch(
             "/users/me/profile",
             headers={"Authorization": f"Bearer {token}"},
@@ -286,7 +278,7 @@ async def test_patch_profile_update_experience_level():
     user, token = _create_test_user(session)
 
     for level in ("beginner", "advanced", "expert"):
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with client() as ac:
             r = await ac.patch(
                 "/users/me/profile",
                 headers={"Authorization": f"Bearer {token}"},
@@ -304,7 +296,7 @@ async def test_patch_profile_invalid_experience_level():
     session = _get_test_session()
     user, token = _create_test_user(session)
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.patch(
             "/users/me/profile",
             headers={"Authorization": f"Bearer {token}"},
@@ -323,7 +315,7 @@ async def test_patch_profile_empty_body_no_change():
         session, display_name="Original", experience_level="beginner"
     )
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.patch(
             "/users/me/profile",
             headers={"Authorization": f"Bearer {token}"},
@@ -343,7 +335,7 @@ async def test_patch_profile_display_name_too_long():
     session = _get_test_session()
     user, token = _create_test_user(session)
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.patch(
             "/users/me/profile",
             headers={"Authorization": f"Bearer {token}"},
@@ -357,7 +349,7 @@ async def test_patch_profile_display_name_too_long():
 @pytest.mark.asyncio
 async def test_patch_profile_requires_auth():
     """Test that PATCH /users/me/profile requires authentication"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.patch(
             "/users/me/profile",
             json={"display_name": "Hacker"},
