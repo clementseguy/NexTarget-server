@@ -19,8 +19,9 @@
 |---|---|---|---|---|---|---|
 | NT-030 | Analyse d'une session par le coach IA | both | Must | M | FAIT | `POST /coach/analyze-session` (`app/api/coach.py`) |
 | NT-031 | Prompt d'analyse centralisé | server | Must | S | FAIT | `app/services/prompt_builder.py`, `app/prompts/coach_neutre.yaml` |
-| NT-032 | Multi-personas coach (neutre / cool) | both | Should | M | FAIT | `coach_neutre` + `coach_cool` (`_VARIANT_FILES`) |
+| NT-032 | Multi-personas coach (neutre / cool) | both | Should | M | FAIT | `coach_neutre` + `coach_cool` ; sélection app dans Paramètres uniquement |
 | NT-033 | Écran "Coach" transverse (endpoint agrégé) | both | Should | L | À FAIRE | nécessitera un endpoint d'analyse multi-sessions |
+| NT-034 | Affiner les prompts des personas coach | server | Could | S | À FAIRE | itération contenu `coach_neutre`/`coach_cool` (recette S2) |
 | NT-040 | Authentification OAuth Google | both | Must | M | FAIT | `app/api/auth_google.py`, `/auth/token` |
 | NT-042 | Profil utilisateur (nom/avatar/niveau) | both | Should | M | FAIT | `app/models/user.py` (champs profil) |
 | NT-043 | Endpoint `/users/me` | server | Must | S | FAIT | `app/api/users.py` |
@@ -47,6 +48,7 @@
 
 - **Must** — (aucun ; la rotation manuelle de la clé Mistral reste à faire côté ops, cf. NT-061).
 - **Should** — NT-048, NT-053, NT-054, NT-055, NT-071, NT-033.
+- **Could** — NT-034 (affinage prompts personas).
 - **Won't-now** — NT-045, NT-046, NT-047, NT-006.
 
 ## Note de cohérence documentaire
