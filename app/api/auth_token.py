@@ -142,7 +142,12 @@ def exchange_callback_token(
         )
 
 
-@router.post("/token/refresh")
+@router.post(
+    "/token/refresh",
+    responses={
+        401: {"description": "Refresh token invalide, expiré, révoqué ou réutilisé (famille révoquée), ou utilisateur inactif"},
+    },
+)
 def refresh_access_token(
     request: TokenRefreshRequest,
     session: Session = Depends(get_session),

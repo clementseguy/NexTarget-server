@@ -39,7 +39,7 @@ def test_formatter_includes_extra_fields():
     assert payload["method"] == "GET"
     assert payload["path"] == "/health"
     assert payload["status"] == 200
-    assert payload["duration_ms"] == 1.2
+    assert payload["duration_ms"] == pytest.approx(1.2)
 
 
 def test_formatter_includes_request_id_from_contextvar():

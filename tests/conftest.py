@@ -19,8 +19,12 @@ from app.services.database import engine
 
 
 def client() -> AsyncClient:
-    """AsyncClient bound to the FastAPI app (in-process, no network)."""
-    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    """AsyncClient bound to the FastAPI app (in-process, no network).
+
+    base_url en https pour éviter un signal « HTTP insecure » : le scheme
+    est purement cosmétique ici, le transport ASGI ne touche pas le réseau.
+    """
+    return AsyncClient(transport=ASGITransport(app=app), base_url="https://test")
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -70,7 +74,8 @@ def mock_async_http_client(responses):
     """
     queue = list(responses)
 
-    async def _next_response(*args, **kwargs):
+    def _next_response(*args, **kwargs):
+        # side_effect synchrone : AsyncMock enveloppe la valeur de retour.
         return queue.pop(0)
 
     mock = MagicMock()
