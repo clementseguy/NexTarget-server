@@ -1,5 +1,5 @@
 """Refresh tokens: issuance, rotation, reuse detection, revocation (NT-048)."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlmodel import Session, select
@@ -103,7 +103,7 @@ async def test_expired_refresh_token_returns_401():
 
     with Session(engine) as s:
         record = s.exec(select(RefreshToken)).one()
-        record.expires_at = datetime.utcnow() - timedelta(seconds=1)
+        record.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=1)
         s.add(record)
         s.commit()
 

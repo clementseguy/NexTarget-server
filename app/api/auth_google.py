@@ -109,7 +109,14 @@ def google_auth_login(
     }
 
 
-@router.get("/callback")
+@router.get(
+    "/callback",
+    responses={
+        302: {"description": "Redirection vers nextarget://callback?token=<JWT>"},
+        400: {"description": "State invalide/expiré, nonce invalide, échec d'échange de code ou id_token invalide"},
+        500: {"description": "Google OAuth non configuré"},
+    },
+)
 async def google_auth_callback(
     code: str = Query(..., description="Authorization code from Google"),
     state: str = Query(..., description="State token for CSRF protection"),

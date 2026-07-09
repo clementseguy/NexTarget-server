@@ -11,7 +11,7 @@ Security model:
 """
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 import uuid
 
@@ -30,7 +30,10 @@ def _hash(raw_token: str) -> str:
 
 
 def _now() -> datetime:
-    return datetime.utcnow()
+    # Naïf-UTC volontairement : SQLite/SQLModel stocke et relit des datetimes
+    # naïfs ; mélanger aware/naïf lèverait TypeError à la comparaison.
+    # (datetime.utcnow est déprécié en Python 3.12+.)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def issue_refresh_token(

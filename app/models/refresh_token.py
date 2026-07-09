@@ -1,8 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
 from sqlmodel import SQLModel, Field
+
+
+def _utc_now() -> datetime:
+    """Naive UTC now (SQLite stores naive datetimes; utcnow is deprecated)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class RefreshToken(SQLModel, table=True):
@@ -18,6 +23,6 @@ class RefreshToken(SQLModel, table=True):
     user_id: str = Field(index=True)
     token_hash: str = Field(index=True, unique=True)
     family_id: str = Field(index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utc_now)
     expires_at: datetime
     revoked_at: Optional[datetime] = Field(default=None)
