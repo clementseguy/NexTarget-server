@@ -13,3 +13,6 @@ venv/
 # ... mais le fichier d'exemple (sans secret) est versionné
 !.env.example
 data.db
+# Artefacts de couverture (NT-055)
+.coverage
+coverage.xml
