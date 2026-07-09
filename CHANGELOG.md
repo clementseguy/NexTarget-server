@@ -5,7 +5,9 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [Unreleased] — Sprint S3 (Robustesse serveur)
+## [0.2.0] - 2026-07-09
+
+### Sprint S3 (Robustesse serveur)
 
 ### 🎉 Ajouté
 - NT-055 : pipeline CI GitHub Actions (`.github/workflows/ci.yml`) — pytest +
@@ -32,7 +34,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - Tests migrés vers `ASGITransport` (suppression du raccourci httpx `app=`
   déprécié) ; warnings pytest réduits de 30 à 4 (restants = legacy documenté).
 
-## [Unreleased] — Sprint S2 (Demo-ready)
+### Sprint S2 (Demo-ready)
 
 ### 🎉 Ajouté
 - NT-032 : multi-personas coach — nouvelle variante `coach_cool`
@@ -40,7 +42,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   d'analyse mesurables), enregistrée dans `_VARIANT_FILES`. Sélection côté app
   via `prompt_variant` (contrat d'API inchangé, défaut `coach_neutre`).
 
-## [Unreleased] — Sprint S1 (Sécurité & Qualité)
+### Sprint S1 (Sécurité & Qualité)
 
 ### 🔒 Sécurité
 - NT-065 : CORS restreint par environnement — `Settings.cors_origins` pilote le
