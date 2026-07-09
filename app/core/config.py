@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     environment: str = "dev"
     debug: bool = True
 
+    # Logging (NT-053): niveau du logger applicatif JSON.
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+
     # CORS (NT-065): comma-separated list of allowed origins.
     # If unset, defaults depend on the environment:
     #   - dev: ["*"] (permissive, local tooling / Swagger UI)

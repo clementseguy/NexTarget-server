@@ -21,6 +21,13 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   `refresh_expires_in` (champs additifs — clients existants inchangés).
   Config : `REFRESH_TOKEN_EXP_DAYS` (30 j).
 
+- NT-053 : logging structuré — `core/logging.py` (formatter JSON stdlib,
+  zéro dépendance) + middleware de corrélation (`X-Request-ID` entrant honoré
+  sinon généré, renvoyé en header, présent dans chaque ligne de log) ; une
+  ligne `request` par requête (method, path, status, duration_ms — query
+  strings jamais loggées). Niveau via `LOG_LEVEL`. Tracing OpenTelemetry
+  écarté (single-instance, le request-id suffit).
+
 ### 🔄 Modifié
 - Tests migrés vers `ASGITransport` (suppression du raccourci httpx `app=`
   déprécié) ; warnings pytest réduits de 30 à 4 (restants = legacy documenté).

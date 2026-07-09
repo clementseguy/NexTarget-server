@@ -54,6 +54,7 @@ app/
   core/
     config.py          # Settings Pydantic (BaseSettings + .env) — inclut la config Mistral
     security.py        # Création/vérification JWT (callback + access)
+    logging.py         # Logs JSON structurés + ContextVar request_id (NT-053)
     oauth_config.py    # Constantes OAuth (endpoints, scopes, TTL) en Final
   models/
     user.py            # User(id, email, provider, is_active, created_at + profil)
@@ -126,6 +127,18 @@ docs/
 - **Redirect mobile** : les callbacks OAuth redirigent vers `nextarget://callback?token=JWT`.
 - **Coach** : dans le handler, ordre = `rate_limiter.allow(user.id)` → `build_prompt(...)` (422 si variante inconnue) → `mistral_client.fetch_analysis(...)` (mapping d'erreurs) → réponse typée.
 
+## Logging & observabilité (NT-053)
+
+- Logger applicatif : `get_logger("nextarget.<module>")` (`core/logging.py`) —
+  une ligne JSON par événement (ts, level, logger, message, request_id + extras).
+- **Corrélation** : middleware `request_correlation` (main.py) — `X-Request-ID`
+  entrant honoré sinon généré, propagé via ContextVar et renvoyé en header ;
+  une ligne `request` par requête (method, path, status, duration_ms).
+- **Ne jamais logguer** : tokens (JWT/refresh), clé Mistral, prompt complet,
+  query strings (peuvent contenir codes/state OAuth).
+- Niveau via `LOG_LEVEL` (défaut INFO). Pas d'OpenTelemetry : hors périmètre
+  single-instance actuel, le request-id suffit pour corréler.
+
 ## Sécurité — Règles non négociables
 
 Critiques. Ne jamais introduire de régression.
@@ -171,7 +184,6 @@ Critiques. Ne jamais introduire de régression.
 
 - **SQLite** (migration Postgres/Alembic planifiée — backlog NT-071).
 - **State OAuth ET rate limiter en mémoire** (dict/deque in-process) : suffisant en single-instance. Redis nécessaire pour le multi-instance (lié à NT-071).
-- **Pas de logging structuré / tracing** encore (backlog NT-053).
 - **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
 - **`@app.on_event("startup")`** : legacy FastAPI, migration vers lifespan non prioritaire.
 
