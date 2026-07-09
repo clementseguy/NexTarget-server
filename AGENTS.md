@@ -54,9 +54,11 @@ app/
   core/
     config.py          # Settings Pydantic (BaseSettings + .env) — inclut la config Mistral
     security.py        # Création/vérification JWT (callback + access)
+    logging.py         # Logs JSON structurés + ContextVar request_id (NT-053)
     oauth_config.py    # Constantes OAuth (endpoints, scopes, TTL) en Final
   models/
     user.py            # User(id, email, provider, is_active, created_at + profil)
+    refresh_token.py   # RefreshToken(hash SHA-256, famille de rotation) — NT-048
   schemas/
     auth.py            # TokenResponse, UserPublic
     coach.py           # SessionIn/SeriesIn, AnalyzeSessionRequest/Response
@@ -66,11 +68,16 @@ app/
     mistral_client.py  # Appel HTTP Mistral (timeout, mapping d'erreurs)
     prompt_builder.py  # Assemble le prompt à partir de SessionIn + template YAML
     rate_limiter.py    # Rate limiting en mémoire (fenêtre glissante par user)
+    refresh_tokens.py  # Émission/rotation/révocation des refresh tokens (NT-048)
   prompts/
     coach_neutre.yaml  # Template de prompt (persona « neutre »)
     coach_cool.yaml    # Template de prompt (persona « cool », NT-032)
 tests/
+  conftest.py          # Fixtures partagées (client ASGI, reset_db, mocks providers)
   test_auth.py         # Tests OAuth / users
+  test_auth_google_nonce.py  # Nonce OIDC Google (NT-066)
+  test_oauth_flows.py  # Flows OAuth complets mockés Google/Facebook (NT-054)
+  test_cors.py         # CORS par environnement (NT-065)
   test_coach.py        # Tests endpoint coach
 docs/
   specs/               # vue-serveur (projection backlog), pointeur backlog, _archive
@@ -116,8 +123,21 @@ docs/
 - **Provider OAuth** : vérifier la config (`assert_provider_configured()`) en début de handler.
 - **State CSRF** : `create_state()` puis `verify_and_consume()` (usage unique).
 - **Tokens JWT** : deux types — `callback` (10 min, redirect mobile) et `access` (60 min, API). Toujours vérifier `payload["type"]`.
+- **Refresh tokens (NT-048)** : opaques (pas des JWT), 30 j, **hash SHA-256 seul persisté**. Rotation à chaque `/auth/token/refresh` (usage unique) ; rejeu d'un token consommé = signal de compromission → révocation de toute la famille. `/auth/token/revoke` = logout (204 idempotent, pas d'oracle d'existence). Ne jamais logguer un refresh token.
 - **Redirect mobile** : les callbacks OAuth redirigent vers `nextarget://callback?token=JWT`.
 - **Coach** : dans le handler, ordre = `rate_limiter.allow(user.id)` → `build_prompt(...)` (422 si variante inconnue) → `mistral_client.fetch_analysis(...)` (mapping d'erreurs) → réponse typée.
+
+## Logging & observabilité (NT-053)
+
+- Logger applicatif : `get_logger("nextarget.<module>")` (`core/logging.py`) —
+  une ligne JSON par événement (ts, level, logger, message, request_id + extras).
+- **Corrélation** : middleware `request_correlation` (main.py) — `X-Request-ID`
+  entrant honoré sinon généré, propagé via ContextVar et renvoyé en header ;
+  une ligne `request` par requête (method, path, status, duration_ms).
+- **Ne jamais logguer** : tokens (JWT/refresh), clé Mistral, prompt complet,
+  query strings (peuvent contenir codes/state OAuth).
+- Niveau via `LOG_LEVEL` (défaut INFO). Pas d'OpenTelemetry : hors périmètre
+  single-instance actuel, le request-id suffit pour corréler.
 
 ## Sécurité — Règles non négociables
 
@@ -137,9 +157,10 @@ Critiques. Ne jamais introduire de régression.
 ## Tests
 
 - **Framework** : pytest + httpx `AsyncClient` + `anyio`. Config `pytest.ini` (`asyncio_mode = auto`, `pythonpath = .`, `-q`).
-- **Lancement** : `pytest` depuis la racine.
-- **Fixture DB** : `reset_db()` (autouse) → drop_all + create_all entre chaque test.
-- **Pattern endpoint** : `async with AsyncClient(app=app, base_url="http://test") as ac:`.
+- **Lancement** : `pytest` depuis la racine ; couverture : `pytest --cov=app` (CI, NT-055).
+- **Fixtures partagées** : `tests/conftest.py` — `reset_db` (autouse), `client()` (AsyncClient via `ASGITransport`, jamais le raccourci déprécié `app=`), `google_configured`/`facebook_configured`, helpers de mock HTTP (`mock_async_http_client`, `http_response`).
+- **Pattern endpoint** : `async with client() as ac:` (import depuis `tests.conftest`).
+- **OAuth** : providers **toujours mockés** (`tests/test_oauth_flows.py`, NT-054) — aucun appel réseau réel vers Google/Facebook dans les tests.
 - **Coach** : mocker `mistral_client.fetch_analysis` (ne jamais appeler la vraie API Mistral dans les tests) ; couvrir 200, 401 (non authentifié), 422 (variante inconnue), 429 (rate limit).
 - **OAuth non configuré** : les tests gèrent l'absence des env vars OAuth (assertion `"not configured"`).
 - Tout nouveau endpoint ou changement de logique → test : **cas nominal + cas d'erreur** au minimum.
@@ -163,8 +184,6 @@ Critiques. Ne jamais introduire de régression.
 
 - **SQLite** (migration Postgres/Alembic planifiée — backlog NT-071).
 - **State OAuth ET rate limiter en mémoire** (dict/deque in-process) : suffisant en single-instance. Redis nécessaire pour le multi-instance (lié à NT-071).
-- **Pas de refresh tokens** (backlog NT-048).
-- **Pas de logging structuré / tracing** encore (backlog NT-053).
 - **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
 - **`@app.on_event("startup")`** : legacy FastAPI, migration vers lifespan non prioritaire.
 

@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     environment: str = "dev"
     debug: bool = True
 
+    # Logging (NT-053): niveau du logger applicatif JSON.
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+
     # CORS (NT-065): comma-separated list of allowed origins.
     # If unset, defaults depend on the environment:
     #   - dev: ["*"] (permissive, local tooling / Swagger UI)
@@ -27,6 +30,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_exp_minutes: int = 60
     callback_token_exp_minutes: int = 10  # Short-lived token for OAuth callback
+    refresh_token_exp_days: int = 30  # Refresh token lifetime (NT-048)
 
     # Database
     database_url: str = "sqlite:///./data.db"

@@ -1,19 +1,16 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from httpx import AsyncClient
-from sqlmodel import SQLModel, Session
+from sqlmodel import Session
 
-from app.main import app
 from app.services.database import engine
 from app.models.user import User
 from app.core.security import create_access_token
 from app.services.rate_limiter import coach_rate_limiter
+from tests.conftest import client
 
 
 @pytest.fixture(autouse=True, scope="function")
-def reset_db():
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
+def reset_rate_limiter():
     coach_rate_limiter._hits.clear()
     yield
 
@@ -42,7 +39,7 @@ VALID_PAYLOAD = {
 
 @pytest.mark.asyncio
 async def test_analyze_session_requires_auth():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.post("/coach/analyze-session", json=VALID_PAYLOAD)
         assert r.status_code == 401
 
@@ -53,7 +50,7 @@ async def test_analyze_session_success():
     token = create_access_token(sub=user.id)
 
     with patch("app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="Analyse test.")):
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with client() as ac:
             r = await ac.post(
                 "/coach/analyze-session",
                 json=VALID_PAYLOAD,
@@ -77,7 +74,7 @@ async def test_analyze_session_mistral_timeout_returns_504():
         raise MistralClientError("Le modèle ne répond pas (timeout).", status_code=504)
 
     with patch("app.api.coach.mistral_client.fetch_analysis", new=raise_timeout):
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with client() as ac:
             r = await ac.post(
                 "/coach/analyze-session",
                 json=VALID_PAYLOAD,
@@ -94,7 +91,7 @@ async def test_analyze_session_unknown_prompt_variant_returns_422():
     payload = dict(VALID_PAYLOAD)
     payload["prompt_variant"] = "coach_inexistant"
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with client() as ac:
         r = await ac.post(
             "/coach/analyze-session",
             json=payload,
@@ -109,7 +106,7 @@ async def test_analyze_session_rate_limited_after_threshold():
     token = create_access_token(sub=user.id)
 
     with patch("app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="ok")):
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with client() as ac:
             statuses = []
             for _ in range(11):
                 r = await ac.post(
@@ -132,7 +129,7 @@ async def test_analyze_session_accepts_coach_cool_variant():
     payload["prompt_variant"] = "coach_cool"
 
     with patch("app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="Analyse cool.")):
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with client() as ac:
             r = await ac.post(
                 "/coach/analyze-session",
                 json=payload,

@@ -4,49 +4,18 @@ The Google token exchange and id_token verification are mocked: no real
 network call is made. First building block of the mocked-provider test
 suite (NT-054).
 """
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from httpx import AsyncClient
-from sqlmodel import SQLModel
 
-from app.main import app
-from app.services.database import engine
 from app.services.oauth_state import get_state_manager
-
-
-@pytest.fixture(autouse=True, scope="function")
-def reset_db():
-    SQLModel.metadata.drop_all(engine)
-    SQLModel.metadata.create_all(engine)
-    yield
-
-
-@pytest.fixture
-def google_configured(monkeypatch):
-    """Force a valid Google OAuth configuration on the module-level settings."""
-    from app.api import auth_google
-
-    monkeypatch.setattr(auth_google.settings, "google_client_id", "client-id")
-    monkeypatch.setattr(auth_google.settings, "google_client_secret", "client-secret")
-    monkeypatch.setattr(
-        auth_google.settings,
-        "google_redirect_uri",
-        "http://localhost:8000/auth/google/callback",
-    )
+from tests.conftest import client, http_response, mock_async_http_client
 
 
 def _mock_token_exchange():
     """Mock httpx.AsyncClient so the code exchange returns a fake id_token."""
-    response = MagicMock(status_code=200)
-    response.json = MagicMock(return_value={"id_token": "fake-id-token"})
-
-    client = MagicMock()
-    client.__aenter__ = AsyncMock(return_value=client)
-    client.__aexit__ = AsyncMock(return_value=False)
-    client.post = AsyncMock(return_value=response)
-
-    return patch("app.api.auth_google.httpx.AsyncClient", return_value=client)
+    mocked = mock_async_http_client([http_response(200, {"id_token": "fake-id-token"})])
+    return patch("app.api.auth_google.httpx.AsyncClient", return_value=mocked)
 
 
 def _claims(nonce=None, **overrides):
@@ -67,7 +36,7 @@ async def _call_callback(state: str, claims: dict):
         "app.api.auth_google.id_token.verify_oauth2_token",
         return_value=claims,
     ):
-        async with AsyncClient(app=app, base_url="http://test") as ac:
+        async with client() as ac:
             return await ac.get(
                 "/auth/google/callback",
                 params={"code": "auth-code", "state": state},
