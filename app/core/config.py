@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_exp_minutes: int = 60
     callback_token_exp_minutes: int = 10  # Short-lived token for OAuth callback
+    refresh_token_exp_days: int = 30  # Refresh token lifetime (NT-048)
 
     # Database
     database_url: str = "sqlite:///./data.db"

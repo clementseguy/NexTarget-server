@@ -14,6 +14,12 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   (`tests/test_oauth_flows.py`) — Google login→callback→exchange→/users/me,
   Facebook start→callback (dont email masqué), branches d'erreur des deux
   providers. Fixtures partagées dans `tests/conftest.py`.
+- NT-048 : refresh tokens avec rotation — table `RefreshToken` (hash SHA-256
+  seul persisté, famille de rotation), `POST /auth/token/refresh` (usage
+  unique, rejeu = révocation de famille), `POST /auth/token/revoke` (logout,
+  204 idempotent). `/auth/token/exchange` renvoie en plus `refresh_token` /
+  `refresh_expires_in` (champs additifs — clients existants inchangés).
+  Config : `REFRESH_TOKEN_EXP_DAYS` (30 j).
 
 ### 🔄 Modifié
 - Tests migrés vers `ASGITransport` (suppression du raccourci httpx `app=`

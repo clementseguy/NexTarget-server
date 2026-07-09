@@ -10,4 +10,6 @@ __pycache__/
 venv/
 .venv/
 .env.*
+# ... mais le fichier d'exemple (sans secret) est versionné
+!.env.example
 data.db
