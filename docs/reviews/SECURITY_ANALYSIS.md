@@ -107,23 +107,12 @@ except Exception:  # ❌ Trop large, masque bugs
 - ✅ Retry avec backoff pour network errors
 - ✅ Messages sanitisés (pas de leak interne)
 
-#### 5. **NONCE GOOGLE NON VÉRIFIÉ** 🟠 MINEUR
-```python
-# Ligne 56: nonce généré mais jamais validé dans id_token
-_oauth_states[state] = {"nonce": nonce, ...}
-# ❌ Pas de vérification info.get("nonce") == stored_nonce
-```
-
-**Impact**:
-- ⚠️ Protection replay attack incomplète
-- ⚠️ Attaque MITM théorique (si HTTPS cassé)
-
-**Mitigation**:
-```python
-# Dans google_callback après verify_oauth2_token
-if info.get("nonce") != stored.get("nonce"):
-    raise HTTPException(400, "Nonce mismatch")
-```
+#### 5. **NONCE GOOGLE NON VÉRIFIÉ** — ✅ RÉSOLU (NT-066, sprint S1 2026-07)
+Le nonce OIDC est désormais vérifié dans `google_auth_callback`
+(`app/api/auth_google.py`) : le claim `nonce` de l'id_token doit égaler le
+nonce stocké avec le state, sinon 400 `Invalid nonce` (absence = rejet).
+Couvert par `tests/test_auth_google_nonce.py` (nominal + nonce faux/absent +
+state inconnu, providers mockés).
 
 #### 6. **SECRETS MANAGEMENT FAIBLE** 🟠 MINEUR
 ```python

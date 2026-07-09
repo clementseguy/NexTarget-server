@@ -197,6 +197,17 @@ async def google_auth_callback(
             detail=f"Invalid id_token: {str(e)}"
         )
     
+    # Verify OIDC nonce (NT-066): the nonce sent to Google at /login is
+    # stored with the state; the id_token must echo it back. This blocks
+    # replay of an id_token obtained outside this authorization flow.
+    expected_nonce = stored_state.get("nonce")
+    received_nonce = id_token_claims.get("nonce")
+    if not received_nonce or received_nonce != expected_nonce:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid nonce"
+        )
+
     # Extract user information
     email = id_token_claims.get("email")
     sub = id_token_claims.get("sub")

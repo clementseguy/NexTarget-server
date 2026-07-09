@@ -5,6 +5,55 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.2.0] - 2026-07-09
+
+### Sprint S3 (Robustesse serveur)
+
+### 🎉 Ajouté
+- NT-055 : pipeline CI GitHub Actions (`.github/workflows/ci.yml`) — pytest +
+  couverture (`pytest-cov`) en Python 3.11 sur push/PR.
+- NT-054 : tests des flows OAuth complets avec providers mockés
+  (`tests/test_oauth_flows.py`) — Google login→callback→exchange→/users/me,
+  Facebook start→callback (dont email masqué), branches d'erreur des deux
+  providers. Fixtures partagées dans `tests/conftest.py`.
+- NT-048 : refresh tokens avec rotation — table `RefreshToken` (hash SHA-256
+  seul persisté, famille de rotation), `POST /auth/token/refresh` (usage
+  unique, rejeu = révocation de famille), `POST /auth/token/revoke` (logout,
+  204 idempotent). `/auth/token/exchange` renvoie en plus `refresh_token` /
+  `refresh_expires_in` (champs additifs — clients existants inchangés).
+  Config : `REFRESH_TOKEN_EXP_DAYS` (30 j).
+
+- NT-053 : logging structuré — `core/logging.py` (formatter JSON stdlib,
+  zéro dépendance) + middleware de corrélation (`X-Request-ID` entrant honoré
+  sinon généré, renvoyé en header, présent dans chaque ligne de log) ; une
+  ligne `request` par requête (method, path, status, duration_ms — query
+  strings jamais loggées). Niveau via `LOG_LEVEL`. Tracing OpenTelemetry
+  écarté (single-instance, le request-id suffit).
+
+### 🔄 Modifié
+- Tests migrés vers `ASGITransport` (suppression du raccourci httpx `app=`
+  déprécié) ; warnings pytest réduits de 30 à 4 (restants = legacy documenté).
+
+### Sprint S2 (Demo-ready)
+
+### 🎉 Ajouté
+- NT-032 : multi-personas coach — nouvelle variante `coach_cool`
+  (`app/prompts/coach_cool.yaml`, ton décontracté/encourageant, mêmes règles
+  d'analyse mesurables), enregistrée dans `_VARIANT_FILES`. Sélection côté app
+  via `prompt_variant` (contrat d'API inchangé, défaut `coach_neutre`).
+
+### Sprint S1 (Sécurité & Qualité)
+
+### 🔒 Sécurité
+- NT-065 : CORS restreint par environnement — `Settings.cors_origins` pilote le
+  middleware (`*` en dev, aucune origine hors dev, surcharge via
+  `CORS_ALLOW_ORIGINS` en liste séparée par des virgules). `.env.example` et
+  `render.yaml` documentés. Tests dédiés (`tests/test_cors.py`).
+- NT-066 : vérification du nonce OIDC Google dans le callback — le claim
+  `nonce` de l'id_token doit égaler le nonce stocké avec le state (400
+  `Invalid nonce` sinon, absence = rejet). Premier jeu de tests OAuth avec
+  provider mocké (`tests/test_auth_google_nonce.py`), base pour NT-054.
+
 ## [0.1.0] - 2025-10-21
 
 ### 🎉 Ajouté - OAuth2 Mobile Flow
