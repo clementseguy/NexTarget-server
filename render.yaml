@@ -21,6 +21,9 @@ services:
         value: production
       - key: DEBUG
         value: false
+      # CORS (NT-065): en production, aucune origine navigateur autorisée par
+      # défaut (l'app mobile n'est pas concernée). Définir CORS_ALLOW_ORIGINS
+      # (liste séparée par des virgules) uniquement si un client web existe.
       # Google OAuth - À configurer manuellement dans Render Dashboard
       - key: GOOGLE_CLIENT_ID
         sync: false  # Doit être défini manuellement

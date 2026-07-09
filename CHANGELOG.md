@@ -5,6 +5,26 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Unreleased] — Sprint S2 (Demo-ready)
+
+### 🎉 Ajouté
+- NT-032 : multi-personas coach — nouvelle variante `coach_cool`
+  (`app/prompts/coach_cool.yaml`, ton décontracté/encourageant, mêmes règles
+  d'analyse mesurables), enregistrée dans `_VARIANT_FILES`. Sélection côté app
+  via `prompt_variant` (contrat d'API inchangé, défaut `coach_neutre`).
+
+## [Unreleased] — Sprint S1 (Sécurité & Qualité)
+
+### 🔒 Sécurité
+- NT-065 : CORS restreint par environnement — `Settings.cors_origins` pilote le
+  middleware (`*` en dev, aucune origine hors dev, surcharge via
+  `CORS_ALLOW_ORIGINS` en liste séparée par des virgules). `.env.example` et
+  `render.yaml` documentés. Tests dédiés (`tests/test_cors.py`).
+- NT-066 : vérification du nonce OIDC Google dans le callback — le claim
+  `nonce` de l'id_token doit égaler le nonce stocké avec le state (400
+  `Invalid nonce` sinon, absence = rejet). Premier jeu de tests OAuth avec
+  provider mocké (`tests/test_auth_google_nonce.py`), base pour NT-054.
+
 ## [0.1.0] - 2025-10-21
 
 ### 🎉 Ajouté - OAuth2 Mobile Flow

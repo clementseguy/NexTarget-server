@@ -68,6 +68,7 @@ app/
     rate_limiter.py    # Rate limiting en mémoire (fenêtre glissante par user)
   prompts/
     coach_neutre.yaml  # Template de prompt (persona « neutre »)
+    coach_cool.yaml    # Template de prompt (persona « cool », NT-032)
 tests/
   test_auth.py         # Tests OAuth / users
   test_coach.py        # Tests endpoint coach
@@ -125,13 +126,13 @@ Critiques. Ne jamais introduire de régression.
 1. **Aucun mot de passe** : backend OAuth-only côté auth. Ne jamais ajouter d'auth locale (email/password).
 2. **State tokens usage unique** : chaque state CSRF est consommé (supprimé) après vérification.
 3. **Vérification du type de token JWT** : toujours vérifier `payload["type"]` (`access`/`callback`). Un callback token ne donne jamais accès à l'API.
-4. **Vérification `id_token` Google** via la lib officielle `google-auth` (signature, audience, issuer, expiration).
+4. **Vérification `id_token` Google** via la lib officielle `google-auth` (signature, audience, issuer, expiration) **+ vérification du nonce OIDC** contre celui stocké avec le state (NT-066) — ne jamais retirer ce contrôle.
 5. **Timeouts** sur toute requête HTTP externe : `OAUTH_TIMEOUT_SECONDS` (15 s) pour les IdP ; `mistral_timeout_seconds` (30 s) pour Mistral.
 6. **Secrets en variables d'environnement** uniquement (`Settings` + `.env`). Jamais dans le code. Sur Render, les secrets sont `sync: false` (définis à la main) — inclut `MISTRAL_API_KEY`.
 7. **Coach = données minimales + protégé** : l'endpoint exige un JWT (`get_current_user`). Ne jamais renvoyer au client la clé Mistral **ni le prompt complet**, et ne pas les logguer. Le client n'envoie que les données de session.
 8. **Rate limiting sur les endpoints coûteux** (appels Mistral) : conserver `coach_rate_limiter` (429 au-delà). Ne pas exposer un endpoint IA sans limite.
 9. **Pas d'info interne dans les erreurs HTTP** : pas de stack trace, nom de table ou détail d'implémentation vers le client.
-10. **CORS** : `allow_origins=["*"]` est un TODO connu (dev). À restreindre par environnement en prod (voir backlog NT-065). Ne pas élargir les autres paramètres CORS.
+10. **CORS** : origines pilotées par l'environnement (NT-065, `Settings.cors_origins`) — `*` en dev, **aucune origine** hors dev sauf `CORS_ALLOW_ORIGINS` explicite. Ne pas relâcher ce comportement ni élargir les autres paramètres CORS.
 
 ## Tests
 
@@ -166,8 +167,6 @@ Critiques. Ne jamais introduire de régression.
 - **Pas de logging structuré / tracing** encore (backlog NT-053).
 - **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
 - **`@app.on_event("startup")`** : legacy FastAPI, migration vers lifespan non prioritaire.
-- **Nonce Google généré mais non vérifié** dans le callback — amélioration identifiée (backlog NT-066, `SECURITY_ANALYSIS.md`).
-- **Coach mono-persona** aujourd'hui (`coach_neutre.yaml`) : le multi-persona est scaffoldé (`_VARIANT_FILES`, `prompt_variant`) mais non livré (backlog NT-032).
 
 ## Commandes de référence
 
