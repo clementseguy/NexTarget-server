@@ -174,7 +174,18 @@ Critiques. Ne jamais introduire de régression.
 
 ## Workflow Git (rappel gouvernance)
 
-- **Branche par item** : `type/NT-XXX-slug` (ex. `feat/NT-066-verif-nonce-google`).
+- **Flux de branches (Git flow)** : `main` ← `dev` ← `feature/<code_nom_feature>`.
+  - **`main`** : branche de **production**, taggée à chaque **release**. Jamais de commit direct.
+  - **`dev`** : branche d'**intégration** ; reçoit les features validées.
+  - Toute branche de développement part de **`dev`** (jamais de `main`) et suit la
+    convention `type/NT-XXX-slug` (ex. `feat/NT-066-verif-nonce-google`).
+    Pour un lot multi-features, une branche `feature/<code_nom_feature>` regroupant
+    les IDs concernés est acceptée.
+- **Cycle de développement d'une (ou plusieurs) feature(s)** :
+  1. Créer la branche depuis **`dev`**.
+  2. Développer, puis ouvrir une **PR de la branche vers `dev`** (merge après revue + CI verte).
+  3. Pour livrer : ouvrir une **PR de `dev` vers `main`**, accompagnée d'une **release**
+     (bump de version, `CHANGELOG.md`, tag).
 - **Commit** : sujet préfixé par l'ID — `feat(coach): NT-032 persona coach cool`.
 - **PR** : titre `[NT-XXX] …`, corps listant les IDs + critères cochés.
 - Un item `both` peut donner une PR ici **et** une dans NexTarget-app, avec le **même ID**.
