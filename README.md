@@ -22,6 +22,7 @@ Deux responsabilités, volontairement rien de plus :
 
 | Endpoint | Rôle |
 |---|---|
+| `GET /` | Page d’accueil publique et statique de NexTarget |
 | `GET /health` | Health check |
 | `GET /auth/google/login` → `GET /auth/google/callback` | Flow OAuth Google (state CSRF usage unique, **nonce OIDC vérifié**) |
 | `GET /auth/facebook/start` → `GET /auth/facebook/callback` | Flow OAuth Facebook |
