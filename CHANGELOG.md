@@ -5,6 +5,15 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Non publié]
+
+### Ajouté
+- Page d’accueil publique, statique et responsive sur `GET /`, avec les visuels
+  locaux de NexTarget-app, métadonnées SEO, `robots.txt` et sitemap minimal.
+- En-têtes de sécurité navigateur (CSP stricte sur la landing, HSTS en
+  production, `nosniff`, Referrer-Policy, Permissions-Policy et protection
+  anti-iframe).
+
 ## [0.2.0] - 2026-07-09
 
 ### Sprint S3 (Robustesse serveur)
