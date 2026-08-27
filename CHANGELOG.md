@@ -8,6 +8,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 ## [Non publié]
 
 ### Ajouté
+- NT-049 : page HTML `GET /app/admin/users` strictement read-only, protégée par
+  HTTP Basic sur HTTPS avec une empreinte scrypt salée fournie par
+  `ADMIN_PASSWORD_HASH`, et réponses non mises en cache/non indexables.
 - Page d’accueil publique, statique et responsive sur `GET /`, avec les visuels
   locaux de NexTarget-app, métadonnées SEO, `robots.txt` et sitemap minimal.
 - En-têtes de sécurité navigateur (CSP stricte sur la landing, HSTS en

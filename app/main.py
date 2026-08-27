@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .core.config import get_settings
 from .core.logging import get_logger, request_id_var, setup_logging
 from .services.database import init_db
-from .api import auth_google, auth_facebook, auth_token, users, coach
+from .api import admin, auth_google, auth_facebook, auth_token, users, coach
 
 settings = get_settings()
 
@@ -132,6 +132,10 @@ async def security_headers(request: Request, call_next):
     if request_path.startswith("/site-assets/") and response.status_code == 200:
         response.headers["Cache-Control"] = "public, max-age=604800"
 
+    if request_path == "/app/admin" or request_path.startswith("/app/admin/"):
+        for header, value in admin.ADMIN_HEADERS.items():
+            response.headers[header] = value
+
     return response
 
 
@@ -205,3 +209,6 @@ app.include_router(users.router)
 
 # Coach IA (proxy Mistral)
 app.include_router(coach.router)
+
+# Read-only administration (NT-049)
+app.include_router(admin.router)
