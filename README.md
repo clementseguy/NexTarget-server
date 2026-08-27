@@ -31,6 +31,7 @@ Deux responsabilités, volontairement rien de plus :
 | `POST /auth/token/revoke` | Révocation (logout), 204 idempotent |
 | `GET /users/me` · `PATCH /users/me/profile` | Profil utilisateur (JWT) |
 | `POST /coach/analyze-session` | Analyse coach IA (JWT + rate limit 10/5 min) |
+| `GET /app/admin/users` | Page HTML read-only des utilisateurs (hors API REST, HTTP Basic sur HTTPS) |
 
 Swagger : `http://localhost:8000/docs` · Spec : [docs/nextarget-api-v0.1.0.yaml](docs/nextarget-api-v0.1.0.yaml)
 
@@ -75,6 +76,7 @@ Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (br
 | Document | Contenu |
 |---|---|
 | [docs/guides/quickstart.md](docs/guides/quickstart.md) | Démarrage rapide |
+| [docs/guides/admin-read-only.md](docs/guides/admin-read-only.md) | Administration read-only des utilisateurs |
 | [docs/tech/architecture.md](docs/tech/architecture.md) | Architecture et flows OAuth |
 | [docs/tech/render_setup.md](docs/tech/render_setup.md) | Déploiement Render |
 | [docs/reviews/SECURITY_ANALYSIS.md](docs/reviews/SECURITY_ANALYSIS.md) | Analyse de sécurité |
