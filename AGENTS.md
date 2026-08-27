@@ -30,11 +30,14 @@ Le **quoi/pourquoi** vit dans le backlog unifié, hébergé dans le repo
 **NexTarget-app** (pas ici) :
 
 - **Backlog unifié (source de vérité)** : `NexTarget-app/docs/backlog/backlog-unifie.md`
-- **Vue serveur (projection locale)** : [`docs/specs/vue-serveur.md`](docs/specs/vue-serveur.md)
+- **Vue serveur (source canonique)** : `NexTarget-app/docs/backlog/vue-serveur.md`
 - **Gouvernance / DoD / convention d'IDs** : `NexTarget-app/docs/backlog/README.md`
 
-Ce repo ne maintient plus de backlog propre ; `docs/specs/Backlog v0.1.md` est un
-simple pointeur, et l'ancien contenu est archivé sous `docs/specs/_archive/`.
+Ce repo ne maintient plus de backlog propre ; `docs/specs/Backlog v0.1.md` et
+`docs/specs/vue-serveur.md` sont de simples pointeurs, et l'ancien contenu est
+archivé sous `docs/specs/_archive/`. Ne jamais recopier ni modifier ici les
+items, statuts, périmètres ou critères d'acceptation du backlog : toute mise à
+jour doit être faite exclusivement dans **NexTarget-app**.
 En cas de conflit sur le périmètre produit, **le backlog prime** ; cet `AGENTS.md`
 fait autorité sur le **comment**.
 
@@ -80,7 +83,7 @@ tests/
   test_cors.py         # CORS par environnement (NT-065)
   test_coach.py        # Tests endpoint coach
 docs/
-  specs/               # vue-serveur (projection backlog), pointeur backlog, _archive
+  specs/               # pointeurs vers le backlog canonique, _archive
   tech/                # Architecture, guides OAuth, setup Render
   reviews/             # SECURITY_ANALYSIS.md
   guides/              # quickstart
@@ -170,7 +173,8 @@ Critiques. Ne jamais introduire de régression.
 1. `pytest` vert.
 2. Toute nouvelle valeur configurable passée par `core/config.py` (+ `.env.example` mis à jour).
 3. Aucune régression sur les règles de sécurité ci-dessus ; aucun secret dans le diff.
-4. `CHANGELOG.md` mis à jour ; statut de l'item mis à jour dans le backlog unifié (+ recopie dans `docs/specs/vue-serveur.md`).
+4. `CHANGELOG.md` mis à jour ; statut de l'item mis à jour exclusivement dans le
+   backlog canonique de **NexTarget-app** (aucune recopie dans ce dépôt).
 
 ## Workflow Git (rappel gouvernance)
 
@@ -209,7 +213,7 @@ curl http://localhost:8000/health            # health check
 ```
 
 ## Documentation de référence
-- [`docs/specs/vue-serveur.md`](docs/specs/vue-serveur.md) — projection serveur du backlog unifié
+- [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) — source canonique stable dans NexTarget-app ([pointeur local](docs/specs/vue-serveur.md))
 - [`docs/tech/architecture.md`](docs/tech/architecture.md) — flow OAuth mobile
 - [`docs/reviews/SECURITY_ANALYSIS.md`](docs/reviews/SECURITY_ANALYSIS.md) — analyse de sécurité et points à améliorer
 - [`docs/guides/quickstart.md`](docs/guides/quickstart.md) — démarrage rapide

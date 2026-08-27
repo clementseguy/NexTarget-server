@@ -80,7 +80,7 @@ Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (br
 | [docs/tech/architecture.md](docs/tech/architecture.md) | Architecture et flows OAuth |
 | [docs/tech/render_setup.md](docs/tech/render_setup.md) | Déploiement Render |
 | [docs/reviews/SECURITY_ANALYSIS.md](docs/reviews/SECURITY_ANALYSIS.md) | Analyse de sécurité |
-| [docs/specs/vue-serveur.md](docs/specs/vue-serveur.md) | Projection du [backlog unifié](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/backlog-unifie.md) |
+| [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) | Vue canonique stable maintenue dans NexTarget-app ([pointeur local](docs/specs/vue-serveur.md)) |
 | [docs/releases/](docs/releases/) · [CHANGELOG.md](CHANGELOG.md) | Notes de version et historique |
 
 ---

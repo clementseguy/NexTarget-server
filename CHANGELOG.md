@@ -7,6 +7,12 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Modifié
+- La copie locale de la vue serveur du backlog est remplacée par un pointeur
+  vers la source canonique stable sur la branche `main` de NexTarget-app ; les
+  règles du dépôt interdisent désormais toute recopie ou modification locale
+  du backlog.
+
 ### Ajouté
 - NT-049 : page HTML `GET /app/admin/users` strictement read-only, protégée par
   HTTP Basic sur HTTPS avec une empreinte scrypt salée fournie par
