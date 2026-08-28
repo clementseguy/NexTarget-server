@@ -1,6 +1,7 @@
-from pydantic import BaseSettings, Field
 from functools import lru_cache
 from typing import List, Optional
+
+from pydantic import BaseSettings, Field
 
 class Settings(BaseSettings):
     app_name: str = "NexTarget API"
@@ -31,6 +32,11 @@ class Settings(BaseSettings):
     access_token_exp_minutes: int = 60
     callback_token_exp_minutes: int = 10  # Short-lived token for OAuth callback
     refresh_token_exp_days: int = 30  # Refresh token lifetime (NT-048)
+
+    # Read-only administration (NT-049). The password itself is never stored:
+    # ADMIN_PASSWORD_HASH contains a salted scrypt verifier generated locally.
+    admin_username: Optional[str] = Field(default=None, env="ADMIN_USERNAME")
+    admin_password_hash: Optional[str] = Field(default=None, env="ADMIN_PASSWORD_HASH")
 
     # Database
     database_url: str = "sqlite:///./data.db"

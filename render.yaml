@@ -45,3 +45,8 @@ services:
         value: https://api.mistral.ai/v1
       - key: MISTRAL_MODEL
         value: mistral-small-latest
+      # Administration read-only (NT-049). Définir les deux valeurs à la main.
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false  # Empreinte scrypt uniquement, jamais le mot de passe brut

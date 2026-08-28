@@ -86,6 +86,13 @@ Les variables sont déjà déclarées dans `render.yaml` avec `sync: false`, ce 
 
 **Note** : La propriété `startCommand` dans `render.yaml` est ignorée par Render. Utilisez le Dashboard UI.
 
+### Administration read-only (NT-049)
+
+Définir `ADMIN_USERNAME` et `ADMIN_PASSWORD_HASH` comme secrets dans le
+Dashboard. `ADMIN_PASSWORD_HASH` contient une empreinte scrypt salée générée
+localement, jamais le mot de passe brut. La génération et le test d’accès sont
+documentés dans [`docs/guides/admin-read-only.md`](../guides/admin-read-only.md).
+
 ---
 
 ## 🔍 Vérification Post-Déploiement
