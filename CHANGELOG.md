@@ -5,9 +5,9 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [Non publié]
+## [0.3.0] - 2026-09-02
 
-### Ajouté
+### 🎉 Ajouté
 - NT-071 : migration SQLite → PostgreSQL Neon avec Alembic. Alembic devient la
   source de vérité du schéma de production (migration initiale `user` +
   `refreshtoken`, `SQLModel.metadata.create_all()` limité au dev/tests
@@ -21,14 +21,6 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   skip automatique sans base de test) ; procédure de bascule à vide,
   sauvegarde `pg_dump`, restauration et rollback documentée
   (`docs/tech/postgres_neon_migration.md`).
-
-### Modifié
-- La copie locale de la vue serveur du backlog est remplacée par un pointeur
-  vers la source canonique stable sur la branche `main` de NexTarget-app ; les
-  règles du dépôt interdisent désormais toute recopie ou modification locale
-  du backlog.
-
-### Ajouté
 - NT-049 : page HTML `GET /app/admin/users` strictement read-only, protégée par
   HTTP Basic sur HTTPS avec une empreinte scrypt salée fournie par
   `ADMIN_PASSWORD_HASH`, et réponses non mises en cache/non indexables.
@@ -37,6 +29,12 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - En-têtes de sécurité navigateur (CSP stricte sur la landing, HSTS en
   production, `nosniff`, Referrer-Policy, Permissions-Policy et protection
   anti-iframe).
+
+### 🔄 Modifié
+- La copie locale de la vue serveur du backlog est remplacée par un pointeur
+  vers la source canonique stable sur la branche `main` de NexTarget-app ; les
+  règles du dépôt interdisent désormais toute recopie ou modification locale
+  du backlog.
 
 ## [0.2.0] - 2026-07-09
 
