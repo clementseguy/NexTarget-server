@@ -7,6 +7,21 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté
+- NT-071 : migration SQLite → PostgreSQL Neon avec Alembic. Alembic devient la
+  source de vérité du schéma de production (migration initiale `user` +
+  `refreshtoken`, `SQLModel.metadata.create_all()` limité au dev/tests
+  SQLite) ; deux URLs distinctes (`DATABASE_URL` poolée/rôle applicatif,
+  `DATABASE_MIGRATION_URL` directe/rôle propriétaire) ; migrations exécutées
+  avant Uvicorn (`scripts/run_migrations.py`, appelé par `start.py`), échec
+  bloquant sans exposer de secret ; driver PostgreSQL explicite
+  (`postgresql+psycopg2`, normalisation d'URL dans `services/database.py`) ;
+  tests dédiés (`tests/test_database.py`, `tests/test_migrations_failure.py`,
+  `tests/test_migrations_postgres.py` — parcours réel contre PostgreSQL,
+  skip automatique sans base de test) ; procédure de bascule à vide,
+  sauvegarde `pg_dump`, restauration et rollback documentée
+  (`docs/tech/postgres_neon_migration.md`).
+
 ### Modifié
 - La copie locale de la vue serveur du backlog est remplacée par un pointeur
   vers la source canonique stable sur la branche `main` de NexTarget-app ; les

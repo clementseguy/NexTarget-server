@@ -10,6 +10,12 @@ google-auth==2.34.0
 requests==2.32.3
 PyYAML==6.0.2
 
+# Database (NT-071): Alembic is the source of truth for the production schema;
+# psycopg2-binary is the explicit PostgreSQL driver used for Neon in production
+# (SQLite remains the driver for local dev / unit tests, no extra dependency).
+alembic==1.13.2
+psycopg2-binary==2.9.9
+
 # Development/Testing (optional in production)
 pytest==8.3.2
 anyio==4.4.0

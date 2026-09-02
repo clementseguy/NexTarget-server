@@ -8,14 +8,30 @@ Ces variables sont configurées automatiquement au premier déploiement :
 | Variable | Valeur | Description |
 |----------|--------|-------------|
 | `ACCESS_TOKEN_EXP_MINUTES` | `60` | Durée validité JWT (minutes) |
-| `DATABASE_URL` | `sqlite:///./data.db` | URL base de données |
 | `ENVIRONMENT` | `production` | Environnement |
 | `DEBUG` | `false` | Mode debug désactivé |
 | `JWT_SECRET_KEY` | *auto-généré* | Clé secrète JWT (256 bits) |
 
 ---
 
-### 2. Variables OAuth à Ajouter Manuellement
+### 2. Base de Données PostgreSQL (Neon) — NT-071
+
+⚠️ **IMPORTANT** : `DATABASE_URL` et `DATABASE_MIGRATION_URL` sont déclarées dans
+`render.yaml` avec `sync: false` : elles **doivent être saisies manuellement**
+dans le Dashboard Render (onglet Environment), jamais commitées.
+
+| Variable | Rôle Neon | Connexion | Usage |
+|----------|-----------|-----------|-------|
+| `DATABASE_URL` | `nextarget_app` (privilèges minimaux) | poolée (`-pooler`) | Runtime de l'application |
+| `DATABASE_MIGRATION_URL` | `neondb_owner` | directe (unpooled) | Alembic (migrations) + `pg_dump` |
+
+Procédure complète (création du projet Neon, des rôles, bascule, sauvegarde,
+restauration, rollback) : voir
+[`docs/tech/postgres_neon_migration.md`](postgres_neon_migration.md).
+
+---
+
+### 3. Variables OAuth à Ajouter Manuellement
 
 ⚠️ **IMPORTANT** : Ces variables doivent être ajoutées via le Dashboard Render avant le premier déploiement.
 
@@ -135,12 +151,24 @@ Dashboard Render → Onglet **"Logs"**
 3. Vérifier qu'il n'y a pas d'espaces superflus
 4. Redémarrer le service si nécessaire
 
-### Erreur: "Failed to create user"
-**Cause possible** : Base de données SQLite non persistante (fichier perdu au redémarrage)
+### Erreur: "Failed to create user" / utilisateurs perdus après une veille
+**Cause historique (NT-071, corrigée)** : avant la migration vers Neon, la base
+SQLite vivait sur le disque éphémère de Render et ne survivait pas aux mises en
+veille/redéploiements. Le service utilise désormais PostgreSQL Neon
+(persistant) — voir [`docs/tech/postgres_neon_migration.md`](postgres_neon_migration.md).
+Si ce message réapparaît, vérifier que `DATABASE_URL` pointe bien vers Neon (et
+non un fallback SQLite) et consulter les logs de migration au démarrage.
+
+### Le service ne démarre pas : "Database migration failed"
+**Cause** : `alembic upgrade head` a échoué au démarrage (`start.py`), avant
+Uvicorn — c'est le comportement voulu (NT-071) : un schéma en échec ne sert
+jamais de trafic.
 
 **Solution** :
-- Pour production, envisager Render PostgreSQL (gratuit aussi)
-- Ou accepter que les users soient recréés à chaque restart (acceptable pour 1-5 users)
+1. Consulter les logs Render (le type d'exception est loggé, jamais l'URL/le mot de passe).
+2. Vérifier `DATABASE_MIGRATION_URL` (connexion directe, rôle `neondb_owner`).
+3. Vérifier le quota Neon Free (compute/stockage) sur le dashboard Neon.
+4. Voir la procédure de rollback dans [`docs/tech/postgres_neon_migration.md`](postgres_neon_migration.md).
 
 ### Service en "Sleep Mode"
 **Comportement normal** : Après 15min d'inactivité, le service s'endort (tier gratuit)

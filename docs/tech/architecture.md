@@ -39,7 +39,7 @@
 │  │                  SERVICE LAYER                          │   │
 │  │                                                          │   │
 │  │  OAuthStateManager  → CSRF state tokens (TTL 10 min)  │   │
-│  │  Database          → SQLite/Postgres session          │   │
+│  │  Database          → SQLite (dev/tests) / PostgreSQL Neon (prod) │   │
 │  │  OAuth Utils       → get_or_create_user()             │   │
 │  └────────────────────────────────────────────────────────┘   │
 │                              │                                  │
@@ -345,13 +345,14 @@ app.include_router(auth_apple.router)
 │              - JWT_SECRET_KEY (auto)             │
 │              - GOOGLE_CLIENT_ID                   │
 │              - GOOGLE_CLIENT_SECRET               │
-│              - DATABASE_URL (if Postgres)         │
+│              - DATABASE_URL / DATABASE_MIGRATION_URL (Neon)│
 │               ↓                                   │
 │            FastAPI App                            │
 │              - OAuth endpoints                    │
 │              - JWT management                     │
 │               ↓                                   │
-│            SQLite/PostgreSQL                      │
+│            PostgreSQL (Neon) — schéma géré par Alembic│
+│            SQLite réservé au dev local / tests    │
 │                                                   │
 └───────────────────────────────────────────────────┘
 ```
