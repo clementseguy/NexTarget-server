@@ -32,7 +32,8 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     try:
         run_migrations()
-    except Exception as exc:  # noqa: BLE001 - deliberately broad, see module docstring
+    except Exception as exc:  # noqa: BLE001
+        # Deliberately broad: any failure must block startup, see module docstring.
         logger.error("Database migration failed (%s); aborting startup", type(exc).__name__)
         sys.exit(1)
     logger.info("Database migrations applied successfully")
