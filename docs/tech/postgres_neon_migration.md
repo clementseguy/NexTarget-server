@@ -4,7 +4,7 @@ Procédure de référence pour la bascule de production, les sauvegardes et le
 rollback. Complète [`render_setup.md`](render_setup.md) (variables d'env) et
 [`architecture.md`](architecture.md).
 
-> ⚠️ Aucune valeur secrète (URL complète, hostname Neon, mot de passe) ne doit
+> Aucune valeur secrète (URL complète, hostname Neon, mot de passe) ne doit
 > figurer dans ce document, dans un commit ou dans les logs applicatifs. Les
 > exemples ci-dessous utilisent des placeholders (`***`, `<host>`).
 

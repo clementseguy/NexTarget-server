@@ -16,7 +16,7 @@ Ces variables sont configurées automatiquement au premier déploiement :
 
 ### 2. Base de Données PostgreSQL (Neon) — NT-071
 
-⚠️ **IMPORTANT** : `DATABASE_URL` et `DATABASE_MIGRATION_URL` sont déclarées dans
+**IMPORTANT** : `DATABASE_URL` et `DATABASE_MIGRATION_URL` sont déclarées dans
 `render.yaml` avec `sync: false` : elles **doivent être saisies manuellement**
 dans le Dashboard Render (onglet Environment), jamais commitées.
 

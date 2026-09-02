@@ -14,7 +14,7 @@ Backend de l'app mobile NexTarget. Deux responsabilités :
    côté serveur, pour que la **clé API et le prompt ne transitent jamais par le
    client**. Protégé par JWT (« coach connecté uniquement ») et rate-limité.
 
-> ⚠️ Ce backend **n'est plus « OAuth-only sans IA »** : cette description
+> Ce backend **n'est plus « OAuth-only sans IA »** : cette description
 > historique (ancien `Backlog v0.1`) est périmée. La brique Coach IA fait
 > pleinement partie du serveur.
 
@@ -119,6 +119,7 @@ docs/
 - Imports groupés : stdlib → third-party → local (`..core`, `..services`).
 - **Pydantic v1** : `Optional[str]` (pas `str | None`), `BaseSettings` importé depuis `pydantic` (pas `pydantic-settings`).
 - f-strings pour le formatage.
+- **Aucun émoji** : ni dans le code (commentaires, docstrings, messages de log, chaînes retournées à l'API), ni dans la documentation (`*.md`, `AGENTS.md` inclus), ni dans les messages de commit/PR. Ce dépôt est de la documentation technique, pas un post LinkedIn — texte brut uniquement.
 
 ### Nommage
 - `snake_case` (fonctions/variables), `PascalCase` (classes), `UPPER_SNAKE_CASE` + `Final` (constantes), `snake_case.py` (fichiers).
@@ -184,6 +185,7 @@ Critiques. Ne jamais introduire de régression.
 3. Aucune régression sur les règles de sécurité ci-dessus ; aucun secret dans le diff.
 4. `CHANGELOG.md` mis à jour ; statut de l'item mis à jour exclusivement dans le
    backlog canonique de **NexTarget-app** (aucune recopie dans ce dépôt).
+5. Aucun émoji dans le diff (code, doc, `CHANGELOG.md`, message de commit/PR).
 
 ## Workflow Git (rappel gouvernance)
 
