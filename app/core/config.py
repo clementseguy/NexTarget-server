@@ -38,8 +38,15 @@ class Settings(BaseSettings):
     admin_username: Optional[str] = Field(default=None, env="ADMIN_USERNAME")
     admin_password_hash: Optional[str] = Field(default=None, env="ADMIN_PASSWORD_HASH")
 
-    # Database
+    # Database (NT-071)
+    # DATABASE_URL: runtime connection used by the app (pooled, least-privilege
+    # role in production — e.g. Neon's pooled endpoint). Defaults to a local
+    # SQLite file for dev/tests.
     database_url: str = "sqlite:///./data.db"
+    # DATABASE_MIGRATION_URL: direct connection used only by Alembic and
+    # administrative operations (owner role, unpooled — required by Neon for
+    # DDL). Falls back to DATABASE_URL when unset (e.g. local SQLite).
+    database_migration_url: Optional[str] = Field(default=None, env="DATABASE_MIGRATION_URL")
 
     # Mistral
     mistral_api_key: Optional[str] = Field(default=None, env="MISTRAL_API_KEY")

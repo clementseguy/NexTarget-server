@@ -15,8 +15,16 @@ services:
         generateValue: true  # Génère automatiquement un secret sécurisé
       - key: ACCESS_TOKEN_EXP_MINUTES
         value: 60
+      # Database (NT-071): PostgreSQL on Neon (project nextarget-prod, Frankfurt).
+      # DATABASE_URL = pooled connection, least-privilege runtime role
+      # (e.g. nextarget_app). DATABASE_MIGRATION_URL = direct connection,
+      # owner role (neondb_owner), used only by Alembic/pg_dump before
+      # Uvicorn starts (see start.py). Both are set manually in the Render
+      # Dashboard — never committed here, and never logged by the app.
       - key: DATABASE_URL
-        value: sqlite:///./data.db
+        sync: false
+      - key: DATABASE_MIGRATION_URL
+        sync: false
       - key: ENVIRONMENT
         value: production
       - key: DEBUG

@@ -14,7 +14,7 @@ Backend de l'app mobile NexTarget. Deux responsabilités :
    côté serveur, pour que la **clé API et le prompt ne transitent jamais par le
    client**. Protégé par JWT (« coach connecté uniquement ») et rate-limité.
 
-> ⚠️ Ce backend **n'est plus « OAuth-only sans IA »** : cette description
+> Ce backend **n'est plus « OAuth-only sans IA »** : cette description
 > historique (ancien `Backlog v0.1`) est périmée. La brique Coach IA fait
 > pleinement partie du serveur.
 
@@ -44,6 +44,12 @@ fait autorité sur le **comment**.
 ## Architecture
 
 ```
+alembic.ini            # Config Alembic (URL résolue dynamiquement dans alembic/env.py)
+alembic/
+  env.py                # Cible SQLModel.metadata ; URL = DATABASE_MIGRATION_URL ou DATABASE_URL
+  versions/             # Migrations (source de vérité du schéma de prod — NT-071)
+scripts/
+  run_migrations.py     # `alembic upgrade head` exécuté avant Uvicorn (start.py)
 app/
   main.py              # App FastAPI, CORS, routers, startup (init_db)
   api/                 # Endpoints HTTP (couche présentation)
@@ -66,7 +72,7 @@ app/
     auth.py            # TokenResponse, UserPublic
     coach.py           # SessionIn/SeriesIn, AnalyzeSessionRequest/Response
   services/
-    database.py        # Engine SQLite, init_db(), get_session()
+    database.py         # Engine (SQLite dev/tests, Postgres prod — NT-071), init_db(), get_session()
     oauth_state.py     # OAuthStateManager (state CSRF, TTL, usage unique)
     mistral_client.py  # Appel HTTP Mistral (timeout, mapping d'erreurs)
     prompt_builder.py  # Assemble le prompt à partir de SessionIn + template YAML
@@ -113,6 +119,7 @@ docs/
 - Imports groupés : stdlib → third-party → local (`..core`, `..services`).
 - **Pydantic v1** : `Optional[str]` (pas `str | None`), `BaseSettings` importé depuis `pydantic` (pas `pydantic-settings`).
 - f-strings pour le formatage.
+- **Aucun émoji** : ni dans le code (commentaires, docstrings, messages de log, chaînes retournées à l'API), ni dans la documentation (`*.md`, `AGENTS.md` inclus), ni dans les messages de commit/PR. Ce dépôt est de la documentation technique, pas un post LinkedIn — texte brut uniquement.
 
 ### Nommage
 - `snake_case` (fonctions/variables), `PascalCase` (classes), `UPPER_SNAKE_CASE` + `Final` (constantes), `snake_case.py` (fichiers).
@@ -129,6 +136,7 @@ docs/
 - **Refresh tokens (NT-048)** : opaques (pas des JWT), 30 j, **hash SHA-256 seul persisté**. Rotation à chaque `/auth/token/refresh` (usage unique) ; rejeu d'un token consommé = signal de compromission → révocation de toute la famille. `/auth/token/revoke` = logout (204 idempotent, pas d'oracle d'existence). Ne jamais logguer un refresh token.
 - **Redirect mobile** : les callbacks OAuth redirigent vers `nextarget://callback?token=JWT`.
 - **Coach** : dans le handler, ordre = `rate_limiter.allow(user.id)` → `build_prompt(...)` (422 si variante inconnue) → `mistral_client.fetch_analysis(...)` (mapping d'erreurs) → réponse typée.
+- **Base de données (NT-071)** : `DATABASE_URL` (connexion poolée, rôle applicatif à privilèges minimaux) pour le runtime ; `DATABASE_MIGRATION_URL` (connexion directe, rôle propriétaire) réservée à Alembic et aux opérations d'administration (`pg_dump`). Alembic (`alembic/versions/`) est la seule source de vérité du schéma de production — `SQLModel.metadata.create_all()` (`init_db()`) ne s'exécute que si `DATABASE_URL` est du SQLite (dev/tests). Les migrations tournent avant Uvicorn (`scripts/run_migrations.py`, appelé par `start.py`) ; un échec bloque le démarrage. Détails complets (bascule, sauvegarde, restauration, rollback) : [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md).
 
 ## Logging & observabilité (NT-053)
 
@@ -156,6 +164,7 @@ Critiques. Ne jamais introduire de régression.
 8. **Rate limiting sur les endpoints coûteux** (appels Mistral) : conserver `coach_rate_limiter` (429 au-delà). Ne pas exposer un endpoint IA sans limite.
 9. **Pas d'info interne dans les erreurs HTTP** : pas de stack trace, nom de table ou détail d'implémentation vers le client.
 10. **CORS** : origines pilotées par l'environnement (NT-065, `Settings.cors_origins`) — `*` en dev, **aucune origine** hors dev sauf `CORS_ALLOW_ORIGINS` explicite. Ne pas relâcher ce comportement ni élargir les autres paramètres CORS.
+11. **Moindre privilège base de données (NT-071)** : le runtime (`DATABASE_URL`) utilise un rôle sans droit DDL ; seul `DATABASE_MIGRATION_URL` (Alembic, `pg_dump`) utilise le rôle propriétaire. Ne jamais logguer une URL de connexion, un hostname Neon complet ou un mot de passe — en cas d'échec de migration/connexion, ne journaliser que le type d'exception (voir `scripts/run_migrations.py`).
 
 ## Tests
 
@@ -166,6 +175,7 @@ Critiques. Ne jamais introduire de régression.
 - **OAuth** : providers **toujours mockés** (`tests/test_oauth_flows.py`, NT-054) — aucun appel réseau réel vers Google/Facebook dans les tests.
 - **Coach** : mocker `mistral_client.fetch_analysis` (ne jamais appeler la vraie API Mistral dans les tests) ; couvrir 200, 401 (non authentifié), 422 (variante inconnue), 429 (rate limit).
 - **OAuth non configuré** : les tests gèrent l'absence des env vars OAuth (assertion `"not configured"`).
+- **PostgreSQL (NT-071)** : `tests/test_migrations_postgres.py` exerce Alembic + CRUD contre un vrai PostgreSQL — **skip automatique** si `NEXTARGET_TEST_POSTGRES_URL` n'est pas défini (jamais de dépendance réseau dans la suite par défaut). `tests/test_migrations_failure.py` couvre l'échec de migration (URL injoignable) sans nécessiter de serveur Postgres. La suite SQLite reste la référence quotidienne.
 - Tout nouveau endpoint ou changement de logique → test : **cas nominal + cas d'erreur** au minimum.
 
 ## Avant de committer (checklist)
@@ -175,6 +185,7 @@ Critiques. Ne jamais introduire de régression.
 3. Aucune régression sur les règles de sécurité ci-dessus ; aucun secret dans le diff.
 4. `CHANGELOG.md` mis à jour ; statut de l'item mis à jour exclusivement dans le
    backlog canonique de **NexTarget-app** (aucune recopie dans ce dépôt).
+5. Aucun émoji dans le diff (code, doc, `CHANGELOG.md`, message de commit/PR).
 
 ## Workflow Git (rappel gouvernance)
 
@@ -197,8 +208,8 @@ Critiques. Ne jamais introduire de régression.
 
 ## Décisions intentionnelles (ne pas « corriger »)
 
-- **SQLite** (migration Postgres/Alembic planifiée — backlog NT-071).
-- **State OAuth ET rate limiter en mémoire** (dict/deque in-process) : suffisant en single-instance. Redis nécessaire pour le multi-instance (lié à NT-071).
+- **SQLite pour le dev local et les tests unitaires uniquement** (NT-071) ; la production utilise PostgreSQL Neon via Alembic — ne pas réintroduire `SQLModel.metadata.create_all()` comme source de vérité du schéma de production.
+- **State OAuth ET rate limiter en mémoire** (dict/deque in-process) : suffisant en single-instance. NT-071 corrige la persistance relationnelle (utilisateurs, refresh tokens) mais ne rend pas ces composants multi-instance ; Redis resterait nécessaire pour ça (hors périmètre).
 - **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
 - **`@app.on_event("startup")`** : legacy FastAPI, migration vers lifespan non prioritaire.
 
@@ -210,11 +221,18 @@ uvicorn app.main:app --reload --port 8000    # serveur (dev)
 pytest                                        # tests
 curl http://localhost:8000/health            # health check
 # Doc interactive : http://localhost:8000/docs
+
+# Migrations (NT-071) — DATABASE_MIGRATION_URL doit pointer vers Postgres
+# (aucun effet en local avec le défaut SQLite, non versionné par Alembic) :
+alembic upgrade head                          # applique les migrations
+alembic revision --autogenerate -m "message"  # nouvelle migration depuis les modèles
+alembic downgrade -1                          # rollback d'une révision
 ```
 
 ## Documentation de référence
 - [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) — source canonique stable dans NexTarget-app ([pointeur local](docs/specs/vue-serveur.md))
 - [`docs/tech/architecture.md`](docs/tech/architecture.md) — flow OAuth mobile
+- [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md) — bascule Postgres Neon, sauvegarde/restauration/rollback (NT-071)
 - [`docs/reviews/SECURITY_ANALYSIS.md`](docs/reviews/SECURITY_ANALYSIS.md) — analyse de sécurité et points à améliorer
 - [`docs/guides/quickstart.md`](docs/guides/quickstart.md) — démarrage rapide
 - [`CHANGELOG.md`](CHANGELOG.md) — historique des changements

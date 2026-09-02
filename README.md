@@ -18,7 +18,7 @@ Deux responsabilités, volontairement rien de plus :
 1. **Authentification OAuth** déléguée à 100 % aux Identity Providers (Google, Facebook) — aucun mot de passe stocké. JWT courts (callback 10 min / access 60 min) + **refresh tokens avec rotation** et détection de rejeu.
 2. **Proxy Coach IA** : `POST /coach/analyze-session` appelle Mistral côté serveur — la clé API et le prompt **ne transitent jamais par le client**. Multi-personas (`coach_neutre`, `coach_cool`), protégé par JWT et rate-limité.
 
-## 🔌 API
+## API
 
 | Endpoint | Rôle |
 |---|---|
@@ -35,7 +35,7 @@ Deux responsabilités, volontairement rien de plus :
 
 Swagger : `http://localhost:8000/docs` · Spec : [docs/nextarget-api-v0.1.0.yaml](docs/nextarget-api-v0.1.0.yaml)
 
-## 🚀 Démarrage rapide
+## Démarrage rapide
 
 ```bash
 pip install -r requirements.txt
@@ -45,7 +45,7 @@ uvicorn app.main:app --reload
 
 📖 [Guide détaillé](docs/guides/quickstart.md) — flow OAuth testable en 5 minutes.
 
-## 🔒 Sécurité
+## Sécurité
 
 - Secrets **exclusivement** en variables d'environnement (`.env` local, Render en prod).
 - State OAuth à usage unique (anti-CSRF) + vérification du **nonce OIDC** Google (anti-rejeu).
@@ -56,7 +56,7 @@ uvicorn app.main:app --reload
 
 Détails : [SECURITY_ANALYSIS.md](docs/reviews/SECURITY_ANALYSIS.md) · règles non négociables dans [AGENTS.md](AGENTS.md).
 
-## 🧪 Tests & CI
+## Tests & CI
 
 ```bash
 pytest                     # 65 tests, providers OAuth entièrement mockés
@@ -65,13 +65,13 @@ pytest --cov=app           # couverture (~80 %)
 
 CI GitHub Actions sur chaque push/PR : pytest + couverture (Python 3.11).
 
-## ⚙️ Stack & déploiement
+## Stack & déploiement
 
 Python 3.11 · FastAPI · SQLModel · SQLite · PyJWT · httpx · Pydantic v1
 
 Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (branche `main`) — voir [docs/tech/render_setup.md](docs/tech/render_setup.md).
 
-## 📚 Documentation
+## Documentation
 
 | Document | Contenu |
 |---|---|
