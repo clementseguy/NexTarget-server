@@ -5,15 +5,22 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [Non publié]
-
-### Modifié
-- La copie locale de la vue serveur du backlog est remplacée par un pointeur
-  vers la source canonique stable sur la branche `main` de NexTarget-app ; les
-  règles du dépôt interdisent désormais toute recopie ou modification locale
-  du backlog.
+## [0.3.0] - 2026-09-02
 
 ### Ajouté
+- NT-071 : migration SQLite → PostgreSQL Neon avec Alembic. Alembic devient la
+  source de vérité du schéma de production (migration initiale `user` +
+  `refreshtoken`, `SQLModel.metadata.create_all()` limité au dev/tests
+  SQLite) ; deux URLs distinctes (`DATABASE_URL` poolée/rôle applicatif,
+  `DATABASE_MIGRATION_URL` directe/rôle propriétaire) ; migrations exécutées
+  avant Uvicorn (`scripts/run_migrations.py`, appelé par `start.py`), échec
+  bloquant sans exposer de secret ; driver PostgreSQL explicite
+  (`postgresql+psycopg2`, normalisation d'URL dans `services/database.py`) ;
+  tests dédiés (`tests/test_database.py`, `tests/test_migrations_failure.py`,
+  `tests/test_migrations_postgres.py` — parcours réel contre PostgreSQL,
+  skip automatique sans base de test) ; procédure de bascule à vide,
+  sauvegarde `pg_dump`, restauration et rollback documentée
+  (`docs/tech/postgres_neon_migration.md`).
 - NT-049 : page HTML `GET /app/admin/users` strictement read-only, protégée par
   HTTP Basic sur HTTPS avec une empreinte scrypt salée fournie par
   `ADMIN_PASSWORD_HASH`, et réponses non mises en cache/non indexables.
@@ -23,11 +30,17 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   production, `nosniff`, Referrer-Policy, Permissions-Policy et protection
   anti-iframe).
 
+### Modifié
+- La copie locale de la vue serveur du backlog est remplacée par un pointeur
+  vers la source canonique stable sur la branche `main` de NexTarget-app ; les
+  règles du dépôt interdisent désormais toute recopie ou modification locale
+  du backlog.
+
 ## [0.2.0] - 2026-07-09
 
 ### Sprint S3 (Robustesse serveur)
 
-### 🎉 Ajouté
+### Ajouté
 - NT-055 : pipeline CI GitHub Actions (`.github/workflows/ci.yml`) — pytest +
   couverture (`pytest-cov`) en Python 3.11 sur push/PR.
 - NT-054 : tests des flows OAuth complets avec providers mockés
@@ -48,13 +61,13 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   strings jamais loggées). Niveau via `LOG_LEVEL`. Tracing OpenTelemetry
   écarté (single-instance, le request-id suffit).
 
-### 🔄 Modifié
+### Modifié
 - Tests migrés vers `ASGITransport` (suppression du raccourci httpx `app=`
   déprécié) ; warnings pytest réduits de 30 à 4 (restants = legacy documenté).
 
 ### Sprint S2 (Demo-ready)
 
-### 🎉 Ajouté
+### Ajouté
 - NT-032 : multi-personas coach — nouvelle variante `coach_cool`
   (`app/prompts/coach_cool.yaml`, ton décontracté/encourageant, mêmes règles
   d'analyse mesurables), enregistrée dans `_VARIANT_FILES`. Sélection côté app
@@ -62,7 +75,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ### Sprint S1 (Sécurité & Qualité)
 
-### 🔒 Sécurité
+### Sécurité
 - NT-065 : CORS restreint par environnement — `Settings.cors_origins` pilote le
   middleware (`*` en dev, aucune origine hors dev, surcharge via
   `CORS_ALLOW_ORIGINS` en liste séparée par des virgules). `.env.example` et
@@ -74,7 +87,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [0.1.0] - 2025-10-21
 
-### 🎉 Ajouté - OAuth2 Mobile Flow
+### Ajouté - OAuth2 Mobile Flow
 
 #### Endpoints
 - Nouveau endpoint `POST /auth/token/exchange` pour échanger callback token contre access token
@@ -110,7 +123,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - Tests des endpoints `/login`, `/start`, `/token/exchange`
 - Total : 7 nouveaux tests (+80 lignes)
 
-### 🔄 Modifié
+### Modifié
 
 #### Comportement OAuth Callback
 - `/auth/google/callback` redirige maintenant vers `nextarget://callback?token=JWT` au lieu de retourner JSON
@@ -121,7 +134,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - Ajout de `.env.example` avec documentation complète des variables
 - Nouvelle variable `CALLBACK_TOKEN_EXP_MINUTES` (défaut: 10)
 
-### 📊 Statistiques
+### Statistiques
 
 ```
 Fichiers modifiés    : 7
@@ -132,15 +145,15 @@ Tests unitaires      : +7
 Taille max fichier   : 150 lignes (< 500 cible)
 ```
 
-### 🎯 Impact
+### Impact
 
-- ✅ Aucune régression fonctionnelle
-- ✅ Rétrocompatibilité totale (alias `/start`)
-- ✅ Database schema inchangé
-- ✅ Architecture stateless préservée
-- ✅ Sécurité renforcée (tokens courts)
+- Aucune régression fonctionnelle
+- Rétrocompatibilité totale (alias `/start`)
+- Database schema inchangé
+- Architecture stateless préservée
+- Sécurité renforcée (tokens courts)
 
-### 🔐 Sécurité
+### Sécurité
 
 - Callback tokens expiration automatique (10 min)
 - Access tokens expiration standard (60 min)
@@ -148,7 +161,7 @@ Taille max fichier   : 150 lignes (< 500 cible)
 - Validation stricte des types de tokens
 - Signature HS256 avec secret fort requis
 
-### 📚 Documentation Complète
+### Documentation Complète
 
 Voir : `docs/tech/implementation_summary.md` pour le résumé exécutif complet.
 
