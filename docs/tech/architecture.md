@@ -13,7 +13,7 @@ NexTarget-server porte l'authentification sociale, le profil distant et le proxy
 | `app/schemas/` | Contrats Pydantic des utilisateurs et du Coach |
 | `alembic/versions/` | Source de vérité du schéma PostgreSQL de production |
 
-Les couches `core`, `services`, `models` et `schemas` ne dépendent pas des handlers HTTP. Les appels réseau externes et la construction de prompt ne vivent pas dans les routes.
+Les couches `core`, `services`, `models` et `schemas` ne dépendent pas des handlers HTTP. Pour Coach, la construction du prompt et l'appel réseau à Mistral sont délégués aux services. Les callbacks OAuth font actuellement exception : les routes Google et Facebook réalisent directement les échanges HTTP avec leur fournisseur.
 
 ## Routes actives
 
@@ -37,7 +37,10 @@ Le contrat OpenAPI courant est généré par FastAPI sur `/openapi.json` et pré
 
 ## Authentification et jetons
 
-Le callback OAuth redirige vers `nextarget://callback?token=<callback-jwt>`. Le callback JWT expire par défaut après 10 minutes et ne donne pas accès aux API. L'échange vérifie son type et l'utilisateur avant d'émettre un access token de 60 minutes et un refresh token opaque de 30 jours.
+Les callbacks OAuth utilisent actuellement deux contrats distincts :
+
+- Google redirige vers `nextarget://callback?token=<callback-jwt>`. Ce JWT expire par défaut après 10 minutes et ne donne pas accès aux API. `POST /auth/token/exchange` vérifie son type et l'utilisateur, puis émet un access token de 60 minutes et un refresh token opaque de 30 jours.
+- Facebook redirige vers `nextarget://callback#access_token=<access-jwt>&token_type=bearer&email=...&provider=facebook`. L'access token est utilisable directement sur les API ; ce flux ne passe pas par `/auth/token/exchange` et n'émet pas de refresh token. Il est exposé côté serveur mais n'est pas câblé dans l'app Flutter.
 
 Seul le hash SHA-256 du refresh token est persisté. Chaque refresh tourne le jeton ; rejouer un jeton consommé révoque toute sa famille. La révocation est idempotente et ne révèle pas l'existence du jeton.
 
