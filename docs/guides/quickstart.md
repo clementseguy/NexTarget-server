@@ -1,162 +1,52 @@
-# Quick Start - OAuth2 Mobile Flow
+# Démarrage rapide
 
-Guide rapide pour tester le flow OAuth2 mobile en 5 minutes.
+## Environnement local
 
-## Prérequis
+NexTarget-server utilise Python 3.11. Depuis la racine du dépôt :
 
 ```bash
-# 1. Vérifier Python
-python3 --version  # >= 3.10
-
-# 2. Installer les dépendances
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-## Configuration (2 minutes)
-
-### 1. Créer le fichier `.env`
-
-```bash
 cp .env.example .env
 ```
 
-### 2. Configurer Google OAuth
+Remplacer au minimum `JWT_SECRET_KEY` dans `.env` par une valeur aléatoire. Sans `DATABASE_URL`, le serveur utilise `sqlite:///./data.db`, uniquement adapté au développement local.
 
-Visitez https://console.cloud.google.com/apis/credentials
-
-1. Créer un projet
-2. Activer Google+ API
-3. Créer OAuth 2.0 Client ID (Web application)
-4. Ajouter redirect URI : `http://localhost:8000/auth/google/callback`
-5. Copier Client ID et Client Secret
-
-### 3. Éditer `.env`
+Lancer ensuite :
 
 ```bash
-# Remplacer ces valeurs
-JWT_SECRET_KEY=votre-secret-aleatoire-min-32-chars
-GOOGLE_CLIENT_ID=votre-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-votre-secret
+uvicorn app.main:app --reload --port 8000
+curl http://localhost:8000/health
+pytest
+```
+
+L'API interactive et son contrat OpenAPI généré depuis le code sont disponibles sur `http://localhost:8000/docs` et `http://localhost:8000/openapi.json`. Aucun fichier OpenAPI statique n'est maintenu dans le dépôt.
+
+## Activer Google OAuth en local
+
+Déclarer dans `.env` :
+
+```dotenv
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
 ```
 
-## Lancement (30 secondes)
+La même URI doit être autorisée dans le client Web Google OAuth. Le parcours mobile est :
 
-```bash
-# Démarrer le serveur
-uvicorn app.main:app --reload --port 8000
-```
+1. `GET /auth/google/login` renvoie `auth_url` et `state`.
+2. Le navigateur ouvre `auth_url`.
+3. Google revient sur `/auth/google/callback`.
+4. Le serveur vérifie state, nonce et `id_token`, puis redirige vers `nextarget://callback?token=...`.
+5. L'app échange ce jeton court via `POST /auth/token/exchange` et reçoit une paire access/refresh.
 
-Serveur prêt sur http://localhost:8000
+Le custom scheme n'est pas un parcours confortable à tester uniquement avec un navigateur de bureau. Pour une recette de bout en bout, utiliser l'app Flutter et le guide [serveur local avec l'émulateur Android](https://github.com/clementseguy/NexTarget-app/blob/main/docs/tech/serveur_local_emulateur_android.md).
 
-## Test du Flow (2 minutes)
+## Activer le Coach
 
-### 1. Health Check
+Définir `MISTRAL_API_KEY` dans `.env`. `POST /coach/analyze-session` exige un access token NexTarget ; les tests automatisés mockent toujours Mistral.
 
-```bash
-curl http://localhost:8000/health
-# → {"status": "ok"}
-```
+## Base PostgreSQL
 
-### 2. Obtenir l'URL d'authentification
-
-```bash
-curl http://localhost:8000/auth/google/login | jq
-```
-
-Vous recevez :
-```json
-{
-  "auth_url": "https://accounts.google.com/o/oauth2/v2/auth?...",
-  "state": "random-token"
-}
-```
-
-### 3. Authentification Google
-
-1. Copier `auth_url` et ouvrir dans un navigateur
-2. Se connecter avec Google
-3. Accepter les permissions
-4. Observer la redirection : `nextarget://callback?token=eyJhbGc...`
-
-💡 Le navigateur ne pourra pas ouvrir `nextarget://` mais vous verrez le token dans l'URL.
-
-### 4. Copier le callback token
-
-Depuis l'URL : `nextarget://callback?token=**COPIER_CE_TOKEN**`
-
-### 5. Échanger le token
-
-```bash
-curl -X POST http://localhost:8000/auth/token/exchange \
-  -H "Content-Type: application/json" \
-  -d '{"callback_token": "VOTRE_TOKEN_ICI"}' | jq
-```
-
-Vous recevez :
-```json
-{
-  "access_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "expires_in": 3600,
-  "email": "votre@email.com",
-  "provider": "google",
-  "user_id": "uuid"
-}
-```
-
-### 6. Utiliser l'access token
-
-```bash
-curl http://localhost:8000/users/me \
-  -H "Authorization: Bearer VOTRE_ACCESS_TOKEN" | jq
-```
-
-Vous recevez :
-```json
-{
-  "id": "uuid",
-  "email": "votre@email.com",
-  "is_active": true,
-  "provider": "google"
-}
-```
-
-✅ **Flow OAuth2 mobile fonctionnel !**
-
-## Débuggage
-
-### Erreur : "Google OAuth not configured"
-
-```bash
-# Vérifier les variables d'environnement
-cat .env | grep GOOGLE
-```
-
-→ S'assurer que `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, et `GOOGLE_REDIRECT_URI` sont définis.
-
-### Erreur : "Invalid or expired state"
-
-→ Recommencer depuis l'étape 2 (le state expire après 10 minutes)
-
-### Erreur : "Callback token has expired"
-
-→ Échanger le token plus rapidement (expire après 10 minutes)
-
-## Documentation complète
-
-- **Guide de test** : `docs/tech/mobile_oauth_testing_guide.md`
-- **Documentation technique** : `docs/tech/OAUTH_MOBILE_FLOW.md`
-- **Checklist validation** : `docs/tech/VALIDATION_CHECKLIST.md`
-- **API Swagger** : http://localhost:8000/docs
-
-## Support
-
-En cas de problème :
-1. Vérifier les logs du serveur
-2. Consulter la documentation complète
-3. Tester avec `pytest tests/test_auth.py -v`
-
----
-
-**Temps total : ~5 minutes** ⏱️
+Le développement quotidien et les tests unitaires utilisent SQLite. Les migrations PostgreSQL/Alembic et leur test dédié sont décrits dans [postgres_neon_migration.md](../tech/postgres_neon_migration.md).

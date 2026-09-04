@@ -33,7 +33,7 @@ Deux responsabilités, volontairement rien de plus :
 | `POST /coach/analyze-session` | Analyse coach IA (JWT + rate limit 10/5 min) |
 | `GET /app/admin/users` | Page HTML read-only des utilisateurs (hors API REST, HTTP Basic sur HTTPS) |
 
-Swagger : `http://localhost:8000/docs` · Spec : [docs/nextarget-api-v0.1.0.yaml](docs/nextarget-api-v0.1.0.yaml)
+Swagger : `http://localhost:8000/docs` · OpenAPI courant : `http://localhost:8000/openapi.json`
 
 ## Démarrage rapide
 
@@ -43,7 +43,7 @@ cp .env.example .env       # renseigner JWT_SECRET_KEY, Google OAuth, MISTRAL_AP
 uvicorn app.main:app --reload
 ```
 
-📖 [Guide détaillé](docs/guides/quickstart.md) — flow OAuth testable en 5 minutes.
+[Guide détaillé](docs/guides/quickstart.md).
 
 ## Sécurité
 
@@ -54,7 +54,7 @@ uvicorn app.main:app --reload
 - CORS piloté par l'environnement : `*` en dev, **aucune origine** en prod sauf configuration explicite.
 - Logs JSON structurés + corrélation `X-Request-ID` — jamais de token, clé ou prompt dans les logs.
 
-Détails : [SECURITY_ANALYSIS.md](docs/reviews/SECURITY_ANALYSIS.md) · règles non négociables dans [AGENTS.md](AGENTS.md).
+Architecture et protections : [docs/tech/architecture.md](docs/tech/architecture.md) · règles non négociables dans [AGENTS.md](AGENTS.md).
 
 ## Tests & CI
 
@@ -67,7 +67,7 @@ CI GitHub Actions sur chaque push/PR : pytest + couverture (Python 3.11).
 
 ## Stack & déploiement
 
-Python 3.11 · FastAPI · SQLModel · SQLite · PyJWT · httpx · Pydantic v1
+Python 3.11 · FastAPI · SQLModel · PostgreSQL en production · SQLite en local/tests · PyJWT · httpx · Pydantic v1
 
 Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (branche `main`) — voir [docs/tech/render_setup.md](docs/tech/render_setup.md).
 
@@ -75,12 +75,12 @@ Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (br
 
 | Document | Contenu |
 |---|---|
+| [docs/README.md](docs/README.md) | Index et règles de maintenance |
 | [docs/guides/quickstart.md](docs/guides/quickstart.md) | Démarrage rapide |
 | [docs/guides/admin-read-only.md](docs/guides/admin-read-only.md) | Administration read-only des utilisateurs |
 | [docs/tech/architecture.md](docs/tech/architecture.md) | Architecture et flows OAuth |
 | [docs/tech/render_setup.md](docs/tech/render_setup.md) | Déploiement Render |
-| [docs/reviews/SECURITY_ANALYSIS.md](docs/reviews/SECURITY_ANALYSIS.md) | Analyse de sécurité |
-| [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) | Vue canonique stable maintenue dans NexTarget-app ([pointeur local](docs/specs/vue-serveur.md)) |
+| [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) | Vue canonique stable maintenue dans NexTarget-app |
 | [docs/releases/](docs/releases/) · [CHANGELOG.md](CHANGELOG.md) | Notes de version et historique |
 
 ---

@@ -1,8 +1,8 @@
 """Rate limiting minimal en mémoire pour les endpoints qui coûtent de
 l'argent (appels Mistral). Volontairement simple (usage perso /
 petite échelle) : fenêtre glissante par utilisateur, stockée en
-mémoire process. À remplacer par Redis si multi-instance un jour
-(cf. SECURITY_ANALYSIS.md, même limite déjà connue pour l'OAuth state).
+mémoire process. À remplacer par Redis si multi-instance un jour ; la même
+limite s'applique au state OAuth (voir docs/tech/architecture.md).
 """
 import time
 from collections import defaultdict, deque

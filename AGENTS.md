@@ -33,11 +33,9 @@ Le **quoi/pourquoi** vit dans le backlog unifié, hébergé dans le repo
 - **Vue serveur (source canonique)** : `NexTarget-app/docs/backlog/vue-serveur.md`
 - **Gouvernance / DoD / convention d'IDs** : `NexTarget-app/docs/backlog/README.md`
 
-Ce repo ne maintient plus de backlog propre ; `docs/specs/Backlog v0.1.md` et
-`docs/specs/vue-serveur.md` sont de simples pointeurs, et l'ancien contenu est
-archivé sous `docs/specs/_archive/`. Ne jamais recopier ni modifier ici les
-items, statuts, périmètres ou critères d'acceptation du backlog : toute mise à
-jour doit être faite exclusivement dans **NexTarget-app**.
+Ce repo ne maintient aucun backlog propre ni copie locale. Ne jamais recopier
+ici les items, statuts, périmètres ou critères d'acceptation : toute mise à jour
+doit être faite exclusivement dans **NexTarget-app**.
 En cas de conflit sur le périmètre produit, **le backlog prime** ; cet `AGENTS.md`
 fait autorité sur le **comment**.
 
@@ -89,10 +87,10 @@ tests/
   test_cors.py         # CORS par environnement (NT-065)
   test_coach.py        # Tests endpoint coach
 docs/
-  specs/               # pointeurs vers le backlog canonique, _archive
-  tech/                # Architecture, guides OAuth, setup Render
-  reviews/             # SECURITY_ANALYSIS.md
-  guides/              # quickstart
+  README.md             # index et règles de maintenance
+  tech/                 # architecture, PostgreSQL, setup Render
+  guides/               # quickstart et administration read-only
+  releases/             # notes de version synthétiques
 ```
 
 ### Règles d'architecture
@@ -230,9 +228,9 @@ alembic downgrade -1                          # rollback d'une révision
 ```
 
 ## Documentation de référence
-- [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) — source canonique stable dans NexTarget-app ([pointeur local](docs/specs/vue-serveur.md))
+- [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) — source canonique stable dans NexTarget-app
+- [`docs/README.md`](docs/README.md) — index de la documentation serveur
 - [`docs/tech/architecture.md`](docs/tech/architecture.md) — flow OAuth mobile
 - [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md) — bascule Postgres Neon, sauvegarde/restauration/rollback (NT-071)
-- [`docs/reviews/SECURITY_ANALYSIS.md`](docs/reviews/SECURITY_ANALYSIS.md) — analyse de sécurité et points à améliorer
 - [`docs/guides/quickstart.md`](docs/guides/quickstart.md) — démarrage rapide
 - [`CHANGELOG.md`](CHANGELOG.md) — historique des changements
