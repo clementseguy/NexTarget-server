@@ -86,9 +86,8 @@ L’audit demandé par NT-049 constate le fonctionnement suivant, sans le modifi
 5. une ligne n’est créée que lorsque cette recherche ne trouve aucun résultat ;
 6. l’URL d’autorisation Google contient actuellement `prompt=consent`, ce qui
    force un écran de consentement à chaque nouveau flow OAuth ;
-7. la configuration Render utilise actuellement un fichier SQLite local, dont
-   la persistance effective doit être prise en compte lors du diagnostic.
+7. la production utilise PostgreSQL via `DATABASE_URL`; l'interface n'utilise
+   jamais la connexion propriétaire réservée aux migrations.
 
-La correction éventuelle de l’identité Google, du consentement ou de la
-persistance est volontairement hors périmètre de NT-049. Elle devra faire
-l’objet d’une validation et d’un changement séparés après observation.
+La correction éventuelle de l'identité Google ou du consentement est hors
+périmètre de NT-049 et doit faire l'objet d'un changement séparé.

@@ -114,7 +114,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - Checklist de validation : `docs/tech/VALIDATION_CHECKLIST.md` (200 lignes)
 - Résumé d'implémentation : `docs/tech/IMPLEMENTATION_SUMMARY.md`
 - Guide de démarrage rapide : `QUICKSTART.md`
-- Mise à jour de l'OpenAPI spec : `docs/nextarget-api-v0.1.0.yaml` (+120 lignes)
+- Mise à jour de la spécification OpenAPI statique alors utilisée (+120 lignes)
 - README principal mis à jour avec section mobile flow
 
 #### Tests
@@ -161,9 +161,10 @@ Taille max fichier   : 150 lignes (< 500 cible)
 - Validation stricte des types de tokens
 - Signature HS256 avec secret fort requis
 
-### Documentation Complète
+### Documentation
 
-Voir : `docs/tech/implementation_summary.md` pour le résumé exécutif complet.
+Ces documents historiques ont depuis été consolidés dans `docs/README.md`,
+`docs/tech/architecture.md` et `docs/guides/quickstart.md`.
 
 ## [0.0.1] - 2025-10-XX (Version initiale)
 
@@ -194,5 +195,5 @@ Voir : `docs/tech/implementation_summary.md` pour le résumé exécutif complet.
 ## Références
 
 - [Architecture OAuth Mobile](docs/tech/architecture.md)
-- [Guide de test](docs/tech/oauth_mobile_testing.md)
+- [Guide de démarrage et de test](docs/guides/quickstart.md)
 - [Guide de démarrage](docs/guides/quickstart.md)

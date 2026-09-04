@@ -33,11 +33,9 @@ Le **quoi/pourquoi** vit dans le backlog unifié, hébergé dans le repo
 - **Vue serveur (source canonique)** : `NexTarget-app/docs/backlog/vue-serveur.md`
 - **Gouvernance / DoD / convention d'IDs** : `NexTarget-app/docs/backlog/README.md`
 
-Ce repo ne maintient plus de backlog propre ; `docs/specs/Backlog v0.1.md` et
-`docs/specs/vue-serveur.md` sont de simples pointeurs, et l'ancien contenu est
-archivé sous `docs/specs/_archive/`. Ne jamais recopier ni modifier ici les
-items, statuts, périmètres ou critères d'acceptation du backlog : toute mise à
-jour doit être faite exclusivement dans **NexTarget-app**.
+Ce repo ne maintient aucun backlog propre ni copie locale. Ne jamais recopier
+ici les items, statuts, périmètres ou critères d'acceptation : toute mise à jour
+doit être faite exclusivement dans **NexTarget-app**.
 En cas de conflit sur le périmètre produit, **le backlog prime** ; cet `AGENTS.md`
 fait autorité sur le **comment**.
 
@@ -89,10 +87,10 @@ tests/
   test_cors.py         # CORS par environnement (NT-065)
   test_coach.py        # Tests endpoint coach
 docs/
-  specs/               # pointeurs vers le backlog canonique, _archive
-  tech/                # Architecture, guides OAuth, setup Render
-  reviews/             # SECURITY_ANALYSIS.md
-  guides/              # quickstart
+  README.md             # index et règles de maintenance
+  tech/                 # architecture, PostgreSQL, setup Render
+  guides/               # quickstart et administration read-only
+  releases/             # notes de version synthétiques
 ```
 
 ### Règles d'architecture
@@ -134,7 +132,7 @@ docs/
 - **State CSRF** : `create_state()` puis `verify_and_consume()` (usage unique).
 - **Tokens JWT** : deux types — `callback` (10 min, redirect mobile) et `access` (60 min, API). Toujours vérifier `payload["type"]`.
 - **Refresh tokens (NT-048)** : opaques (pas des JWT), 30 j, **hash SHA-256 seul persisté**. Rotation à chaque `/auth/token/refresh` (usage unique) ; rejeu d'un token consommé = signal de compromission → révocation de toute la famille. `/auth/token/revoke` = logout (204 idempotent, pas d'oracle d'existence). Ne jamais logguer un refresh token.
-- **Redirect mobile** : les callbacks OAuth redirigent vers `nextarget://callback?token=JWT`.
+- **Redirect mobile** : Google redirige un callback JWT court dans la query (`nextarget://callback?token=...`), ensuite échangé via `/auth/token/exchange`. Facebook conserve son contrat historique : access JWT directement dans le fragment (`nextarget://callback#access_token=...`), sans échange ni refresh token.
 - **Coach** : dans le handler, ordre = `rate_limiter.allow(user.id)` → `build_prompt(...)` (422 si variante inconnue) → `mistral_client.fetch_analysis(...)` (mapping d'erreurs) → réponse typée.
 - **Base de données (NT-071)** : `DATABASE_URL` (connexion poolée, rôle applicatif à privilèges minimaux) pour le runtime ; `DATABASE_MIGRATION_URL` (connexion directe, rôle propriétaire) réservée à Alembic et aux opérations d'administration (`pg_dump`). Alembic (`alembic/versions/`) est la seule source de vérité du schéma de production — `SQLModel.metadata.create_all()` (`init_db()`) ne s'exécute que si `DATABASE_URL` est du SQLite (dev/tests). Les migrations tournent avant Uvicorn (`scripts/run_migrations.py`, appelé par `start.py`) ; un échec bloque le démarrage. Détails complets (bascule, sauvegarde, restauration, rollback) : [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md).
 
@@ -230,9 +228,9 @@ alembic downgrade -1                          # rollback d'une révision
 ```
 
 ## Documentation de référence
-- [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) — source canonique stable dans NexTarget-app ([pointeur local](docs/specs/vue-serveur.md))
+- [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) — source canonique stable dans NexTarget-app
+- [`docs/README.md`](docs/README.md) — index de la documentation serveur
 - [`docs/tech/architecture.md`](docs/tech/architecture.md) — flow OAuth mobile
 - [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md) — bascule Postgres Neon, sauvegarde/restauration/rollback (NT-071)
-- [`docs/reviews/SECURITY_ANALYSIS.md`](docs/reviews/SECURITY_ANALYSIS.md) — analyse de sécurité et points à améliorer
 - [`docs/guides/quickstart.md`](docs/guides/quickstart.md) — démarrage rapide
 - [`CHANGELOG.md`](CHANGELOG.md) — historique des changements
