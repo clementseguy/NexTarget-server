@@ -2,11 +2,42 @@
 
 ## 1. Principe
 
-Tester d’abord les hypothèses qui peuvent invalider le produit : qualité des données, pertinence des métriques, capacité à choisir un exercice utile et stabilité des réponses IA.
+Tester d’abord les hypothèses qui peuvent invalider le produit :
+
+- qualité des données, > faible aujourd'hui, manque d'utilisateurs (mais je peux recruter des users sur les forums. Cela implique que la priorité est d'enregistrer les sessions analysées par l'IA et de limiter l'utilisation de l'IA pour éviter les abus)
+- pertinence des métriques, > nécessite des données
+- capacité à choisir un exercice utile > nécessite une expertise (cf. documents de R&D de la NRA, armée US et française, etc.)
+- stabilité des réponses IA (et comment tester ?)
 
 Chaque étape produit un incrément testable. Aucun travail d’interface important ne précède la validation du moteur.
 
-## 2. Étape 0 — Constituer le jeu de test
+## 2. Étape -1 — Identifier et lever les prérequis de lancement
+
+### Objectif
+
+Éviter de développer le moteur sur un périmètre, des données ou des critères de
+validation incomplets.
+
+### Travail
+
+- Auditer l'existant côté serveur, application et données.
+- Distinguer les prérequis du pilote fermé de ceux du coach prescriptif.
+- Affecter un responsable et une preuve de validation à chaque prérequis.
+- Exécuter la checklist détaillée dans
+  [`prerequis-lancement-mvp-coach.md`](prerequis-lancement-mvp-coach.md).
+
+### Test de sortie
+
+Tous les prérequis P0 ont un état, un responsable, une preuve attendue et aucun
+blocage non arbitré. Le périmètre est aligné avec le backlog canonique.
+
+### Arrêt ou pivot
+
+Si le périmètre du premier pilote n'est pas figé, ne pas implémenter les modèles de
+prescription et de plan. La collecte et la persistance des sessions peuvent en
+revanche commencer, car elles sont communes aux deux périmètres.
+
+## 3. Étape 0 — Constituer le jeu de test
 
 ### Objectif
 
@@ -27,7 +58,7 @@ Deux relectures du même cas à quelques jours d’intervalle aboutissent à la 
 
 Si les scores par série ne permettent pas de distinguer des cas utiles, ne pas développer le coach IA. Revoir la collecte de données en premier.
 
-## 3. Étape 1 — Prototype déterministe hors production
+## 4. Étape 1 — Prototype déterministe hors production
 
 ### Objectif
 
@@ -50,7 +81,7 @@ Le moteur retrouve la priorité attendue sur au moins 80 % du jeu de test, sans 
 
 Si les règles ne sont pas stables, ne pas intégrer Mistral : ajuster métriques, comparabilité ou données.
 
-## 4. Étape 2 — Concevoir la petite base d’exercices
+## 5. Étape 2 — Concevoir la petite base d’exercices
 
 ### Objectif
 
@@ -71,7 +102,7 @@ Chaque priorité du jeu de test conduit à au moins un exercice compatible et à
 
 Si un exercice exige une donnée absente, modifier l’exercice ou la saisie. Ne pas demander à l’IA de combler le manque.
 
-## 5. Étape 3 — Persister les sessions et le coaching
+## 6. Étape 3 — Persister les sessions et le coaching
 
 ### Objectif
 
@@ -93,7 +124,7 @@ Un scénario complet fonctionne : session → prescription → tentative → ré
 
 Si Render Free rend le parcours inutilisable, mesurer la latence avant toute migration. N’envisager Cloudflare Workers ou un plan payant qu’avec un problème reproductible.
 
-## 6. Étape 4 — Coach de session sans IA
+## 7. Étape 4 — Coach de session sans IA
 
 ### Objectif
 
@@ -114,7 +145,7 @@ Sur le jeu de test, aucun débrief ne contient plus d’une priorité et aucune 
 
 Si le débrief déterministe est déjà suffisant, conserver cette solution et réserver l’IA au coach de progression.
 
-## 7. Étape 5 — Ajouter Mistral au coach de session
+## 8. Étape 5 — Ajouter Mistral au coach de session
 
 ### Objectif
 
@@ -135,7 +166,7 @@ L’IA améliore la clarté ou la personnalisation sans réduire la justesse. Le
 
 Si Mistral ajoute peu de valeur, revenir aux gabarits. S’il hallucine, réduire son pouvoir de décision avant de changer de modèle.
 
-## 8. Étape 6 — Coach de progression
+## 9. Étape 6 — Coach de progression
 
 ### Objectif
 
@@ -157,7 +188,7 @@ Les scénarios suivants passent automatiquement : progression, stagnation, deux 
 
 Si le plan change trop souvent, renforcer les règles de stabilité. S’il ne change jamais, revoir les seuils de transition.
 
-## 9. Étape 7 — Évaluation des modèles et des coûts
+## 10. Étape 7 — Évaluation des modèles et des coûts
 
 ### Objectif
 
@@ -178,7 +209,7 @@ Le modèle retenu respecte les seuils de qualité et le coût maximal fixé.
 
 Si aucun petit modèle n’est fiable, utiliser le modèle supérieur uniquement pour le coach de progression, moins fréquent, et garder le coach de session déterministe.
 
-## 10. Étape 8 — Pilote utilisateur limité
+## 11. Étape 8 — Pilote utilisateur limité
 
 ### Objectif
 
@@ -199,7 +230,7 @@ Vérifier que le coach est compris et suivi.
 - répétition toujours justifiée ;
 - incidents et retours exploitables dans l’administration.
 
-## 11. Ordre de développement recommandé
+## 12. Ordre de développement recommandé
 
 ```text
 Jeu de test
@@ -213,7 +244,7 @@ Jeu de test
 → pilote utilisateurs
 ```
 
-## 12. Travaux explicitement différés
+## 13. Travaux explicitement différés
 
 - Photos et stockage objet.
 - Création d’exercices à la volée.
@@ -222,4 +253,3 @@ Jeu de test
 - Référentiel de niveau externe.
 - TAR, vitesse, posture et analyse avancée du matériel.
 - Migration de Render ou Neon sans limite mesurée.
-
