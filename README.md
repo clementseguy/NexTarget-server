@@ -80,7 +80,12 @@ Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (br
 | [docs/guides/admin-read-only.md](docs/guides/admin-read-only.md) | Administration read-only des utilisateurs |
 | [docs/tech/architecture.md](docs/tech/architecture.md) | Architecture et flows OAuth |
 | [docs/tech/render_setup.md](docs/tech/render_setup.md) | Déploiement Render |
-| [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) | Vue canonique stable maintenue dans NexTarget-app |
+| [Backlog unifié](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/backlog-unifie.md) | Inventaire et statut ; filtrer les portées `server` et `both` |
+| [Descriptions des US](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/descriptions.md) | Définition fonctionnelle et critères d'acceptation |
+| [Priorités](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/priorites.md) | Ordre de traitement courant |
+| [Journal](https://github.com/clementseguy/NexTarget-app/tree/main/docs/backlog/journal) | Décisions et livraisons significatives |
+| [Archives](https://github.com/clementseguy/NexTarget-app/tree/main/docs/backlog/archive) | US archivées par année d'archivage |
+| [Gouvernance du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/README.md) | Statuts, journal et Definition of Done |
 | [docs/releases/](docs/releases/) · [CHANGELOG.md](CHANGELOG.md) | Notes de version et historique |
 
 ---

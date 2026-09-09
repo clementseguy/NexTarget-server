@@ -18,7 +18,7 @@ Backend de l'app mobile NexTarget. Deux responsabilités :
 > historique (ancien `Backlog v0.1`) est périmée. La brique Coach IA fait
 > pleinement partie du serveur.
 
-- **Stack** : Python **3.11**, FastAPI, SQLModel, SQLite (Postgres prévu), PyJWT, httpx, Pydantic **v1**
+- **Stack** : Python **3.11**, FastAPI, SQLModel, SQLite en développement/tests, PostgreSQL en production, PyJWT, httpx, Pydantic **v1**
 - **Coach IA** : Mistral via httpx (`mistral_api_base`, `mistral_model` configurables)
 - **Déploiement** : Render.com (free tier, région Frankfurt), config dans `render.yaml`
 - **Langue du code** : anglais (noms, docstrings, messages d'erreur)
@@ -26,16 +26,20 @@ Backend de l'app mobile NexTarget. Deux responsabilités :
 
 ## Source de vérité produit
 
-Le **quoi/pourquoi** vit dans le backlog unifié, hébergé dans le repo
+Le **quoi/pourquoi** vit dans les documents du backlog hébergés dans le repo
 **NexTarget-app** (pas ici) :
 
-- **Backlog unifié (source de vérité)** : `NexTarget-app/docs/backlog/backlog-unifie.md`
-- **Vue serveur (source canonique)** : `NexTarget-app/docs/backlog/vue-serveur.md`
+- **Backlog unifié** : `NexTarget-app/docs/backlog/backlog-unifie.md` — inventaire et statut.
+- **Descriptions** : `NexTarget-app/docs/backlog/descriptions.md` — définition fonctionnelle et critères d'acceptation.
+- **Priorités** : `NexTarget-app/docs/backlog/priorites.md` — ordre de traitement courant.
+- **Journal** : `NexTarget-app/docs/backlog/journal/` — décisions et livraisons significatives.
+- **Archives** : `NexTarget-app/docs/backlog/archive/` — US archivées par année d'archivage.
 - **Gouvernance / DoD / convention d'IDs** : `NexTarget-app/docs/backlog/README.md`
 
 Ce repo ne maintient aucun backlog propre ni copie locale. Ne jamais recopier
 ici les items, statuts, périmètres ou critères d'acceptation : toute mise à jour
-doit être faite exclusivement dans **NexTarget-app**.
+doit être faite exclusivement dans **NexTarget-app**. Les items concernant ce
+serveur sont ceux dont la portée vaut `server` ou `both` dans le backlog unifié.
 En cas de conflit sur le périmètre produit, **le backlog prime** ; cet `AGENTS.md`
 fait autorité sur le **comment**.
 
@@ -228,7 +232,10 @@ alembic downgrade -1                          # rollback d'une révision
 ```
 
 ## Documentation de référence
-- [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) — source canonique stable dans NexTarget-app
+- [Backlog unifié](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/backlog-unifie.md) — filtrer les items de portée `server` ou `both`
+- [Descriptions des US](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/descriptions.md) — critères d'acceptation canoniques
+- [Priorités](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/priorites.md) — ordre de traitement courant
+- [Gouvernance](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/README.md) — statuts, journal et Definition of Done
 - [`docs/README.md`](docs/README.md) — index de la documentation serveur
 - [`docs/tech/architecture.md`](docs/tech/architecture.md) — flow OAuth mobile
 - [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md) — bascule Postgres Neon, sauvegarde/restauration/rollback (NT-071)
