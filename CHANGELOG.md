@@ -5,6 +5,13 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Non publié]
+
+### Modifié
+- NT-152 : le contrat de session du Coach accepte un `exerciseId` facultatif,
+  sans identifiant de prescription ; les anciens payloads sans exercice restent
+  valides.
+
 ## [0.3.0] - 2026-09-02
 
 ### Ajouté

@@ -29,7 +29,7 @@ Les couches `core`, `services`, `models` et `schemas` ne dépendent pas des hand
 | `POST /auth/token/revoke` | refresh token | révoque la famille, réponse 204 idempotente |
 | `GET /users/me` | Bearer JWT | profil courant |
 | `PATCH /users/me/profile` | Bearer JWT | nom affiché et/ou niveau d'expérience |
-| `POST /coach/analyze-session` | Bearer JWT | analyse Mistral d'une session détaillée |
+| `POST /coach/analyze-session` | Bearer JWT | analyse Mistral d'une session détaillée ; `exerciseId` facultatif identifie son exercice principal |
 | `GET /app/admin/users` | HTTP Basic | consultation read-only des utilisateurs |
 | `GET /` | public | landing page statique |
 

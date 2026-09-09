@@ -15,6 +15,7 @@ class SessionIn(BaseModel):
     weapon: Optional[str] = None
     caliber: Optional[str] = None
     date: Optional[datetime] = None
+    exercise_id: Optional[str] = Field(None, alias="exerciseId")
     series: List[SeriesIn] = Field(default_factory=list)
     synthese: Optional[str] = None
 

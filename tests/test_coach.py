@@ -28,8 +28,15 @@ VALID_PAYLOAD = {
     "session": {
         "weapon": "Glock 17",
         "caliber": "9mm",
+        "exerciseId": "exercise-1",
         "series": [
-            {"shot_count": 5, "distance": 25, "points": 45, "group_size_cm": 8.5, "comment": "stable"},
+            {
+                "shot_count": 5,
+                "distance": 25,
+                "points": 45,
+                "group_size_cm": 8.5,
+                "comment": "stable",
+            },
         ],
         "synthese": "RAS",
     },
@@ -49,7 +56,10 @@ async def test_analyze_session_success():
     user = _make_user()
     token = create_access_token(sub=user.id)
 
-    with patch("app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="Analyse test.")):
+    with patch(
+        "app.api.coach.mistral_client.fetch_analysis",
+        new=AsyncMock(return_value="Analyse test."),
+    ):
         async with client() as ac:
             r = await ac.post(
                 "/coach/analyze-session",
@@ -105,7 +115,9 @@ async def test_analyze_session_rate_limited_after_threshold():
     user = _make_user()
     token = create_access_token(sub=user.id)
 
-    with patch("app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="ok")):
+    with patch(
+        "app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="ok")
+    ):
         async with client() as ac:
             statuses = []
             for _ in range(11):
@@ -128,7 +140,10 @@ async def test_analyze_session_accepts_coach_cool_variant():
     payload = dict(VALID_PAYLOAD)
     payload["prompt_variant"] = "coach_cool"
 
-    with patch("app.api.coach.mistral_client.fetch_analysis", new=AsyncMock(return_value="Analyse cool.")):
+    with patch(
+        "app.api.coach.mistral_client.fetch_analysis",
+        new=AsyncMock(return_value="Analyse cool."),
+    ):
         async with client() as ac:
             r = await ac.post(
                 "/coach/analyze-session",
@@ -147,7 +162,16 @@ def test_prompt_builder_variants_produce_distinct_prompts():
     session = SessionIn(
         weapon="Glock 17",
         caliber="9mm",
-        series=[SeriesIn(shot_count=5, distance=25, points=45, group_size_cm=8.5, comment="stable")],
+        exerciseId="exercise-1",
+        series=[
+            SeriesIn(
+                shot_count=5,
+                distance=25,
+                points=45,
+                group_size_cm=8.5,
+                comment="stable",
+            )
+        ],
         synthese="RAS",
     )
     neutral = build_prompt(session, "coach_neutre")
@@ -158,3 +182,17 @@ def test_prompt_builder_variants_produce_distinct_prompts():
     for prompt in (neutral, cool):
         assert "Glock 17" in prompt
         assert "Groupement=8.5cm" in prompt
+
+
+def test_session_contract_accepts_missing_exercise_id():
+    """Historical clients can omit the optional exercise identifier."""
+    from app.schemas.coach import SessionIn, SeriesIn
+
+    session = SessionIn(
+        series=[SeriesIn(shot_count=5, distance=25, points=45, group_size_cm=8.5)]
+    )
+
+    properties = SessionIn.schema(by_alias=True)["properties"]
+    assert session.exercise_id is None
+    assert "exerciseId" in properties
+    assert "prescriptionId" not in properties

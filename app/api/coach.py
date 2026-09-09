@@ -20,13 +20,15 @@ async def analyze_session(
 ):
     """Proxifie l'analyse de session vers Mistral.
 
-    Le client n'envoie que les données de session (arme, calibre,
-    séries, synthèse) ; ni clé API ni prompt complet ne transitent
+    Le client n'envoie que les données de session (arme, calibre, exercice
+    principal facultatif, séries, synthèse) ; ni clé API ni prompt complet ne transitent
     côté client. Endpoint protégé (JWT) : le coach IA est
     "connecté uniquement" (décision produit du 7 juillet 2026).
     """
     if not coach_rate_limiter.allow(current_user.id):
-        raise HTTPException(status_code=429, detail="Trop de requêtes, réessayez plus tard.")
+        raise HTTPException(
+            status_code=429, detail="Trop de requêtes, réessayez plus tard."
+        )
 
     try:
         prompt = build_prompt(payload.session, payload.prompt_variant)
