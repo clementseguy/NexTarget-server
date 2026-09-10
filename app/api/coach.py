@@ -2,15 +2,17 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..core.config import get_settings
+from ..core.logging import get_logger
 from ..models.user import User
 from ..schemas.coach import AnalyzeSessionRequest, AnalyzeSessionResponse
 from ..services import mistral_client
 from ..services.prompt_builder import build_prompt, UnknownPromptVariantError
 from ..services.rate_limiter import coach_rate_limiter
-from ..core.config import get_settings
 from .deps import get_current_user
 
 router = APIRouter(prefix="/coach", tags=["coach"])
+logger = get_logger("nextarget.coach")
 
 
 @router.post("/analyze-session", response_model=AnalyzeSessionResponse)
@@ -25,6 +27,40 @@ async def analyze_session(
     côté client. Endpoint protégé (JWT) : le coach IA est
     "connecté uniquement" (décision produit du 7 juillet 2026).
     """
+    session = payload.session
+    logger.debug(
+        "coach analysis contract",
+        extra={
+            "user": {
+                "id": current_user.id,
+                "experience_level": current_user.experience_level,
+            },
+            "prompt_variant": payload.prompt_variant,
+            "received_session_fields": sorted(
+                session.dict(by_alias=True, exclude_unset=True).keys()
+            ),
+            "session": {
+                "weapon": session.weapon,
+                "caliber": session.caliber,
+                "date": session.date.isoformat() if session.date else None,
+                "exercise_id": session.exercise_id,
+                "has_exercise": session.exercise_id is not None,
+                "series_count": len(session.series),
+                "series": [
+                    {
+                        "shot_count": series.shot_count,
+                        "distance": series.distance,
+                        "points": series.points,
+                        "group_size_cm": series.group_size_cm,
+                        "has_comment": bool(series.comment),
+                    }
+                    for series in session.series
+                ],
+                "has_synthese": bool(session.synthese),
+            },
+        },
+    )
+
     if not coach_rate_limiter.allow(current_user.id):
         raise HTTPException(
             status_code=429, detail="Trop de requêtes, réessayez plus tard."

@@ -1,10 +1,13 @@
-import pytest
+import logging
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from sqlmodel import Session
 
-from app.services.database import engine
-from app.models.user import User
+from app.core.logging import get_logger
 from app.core.security import create_access_token
+from app.models.user import User
+from app.services.database import engine
 from app.services.rate_limiter import coach_rate_limiter
 from tests.conftest import client
 
@@ -15,9 +18,13 @@ def reset_rate_limiter():
     yield
 
 
-def _make_user() -> User:
+def _make_user(experience_level=None) -> User:
     with Session(engine) as session:
-        user = User(email="tireur@example.com", provider="google")
+        user = User(
+            email="tireur@example.com",
+            provider="google",
+            experience_level=experience_level,
+        )
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -71,6 +78,51 @@ async def test_analyze_session_success():
     assert data["analysis"] == "Analyse test."
     assert "model" in data
     assert "generated_at" in data
+
+
+@pytest.mark.asyncio
+async def test_analyze_session_logs_received_contract_without_free_text(caplog):
+    user = _make_user(experience_level="advanced")
+    token = create_access_token(sub=user.id)
+    coach_logger = get_logger("nextarget.coach")
+    previous_level = coach_logger.level
+    coach_logger.setLevel(logging.DEBUG)
+    coach_logger.addHandler(caplog.handler)
+    try:
+        with patch(
+            "app.api.coach.mistral_client.fetch_analysis",
+            new=AsyncMock(return_value="Analyse test."),
+        ):
+            async with client() as ac:
+                response = await ac.post(
+                    "/coach/analyze-session",
+                    json=VALID_PAYLOAD,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+    finally:
+        coach_logger.removeHandler(caplog.handler)
+        coach_logger.setLevel(previous_level)
+
+    assert response.status_code == 200
+    record = next(
+        item
+        for item in caplog.records
+        if item.getMessage() == "coach analysis contract"
+    )
+    assert record.user == {"id": user.id, "experience_level": "advanced"}
+    assert record.prompt_variant == "coach_neutre"
+    assert record.received_session_fields == [
+        "caliber",
+        "exerciseId",
+        "series",
+        "synthese",
+        "weapon",
+    ]
+    assert record.session["exercise_id"] == "exercise-1"
+    assert record.session["series_count"] == 1
+    assert record.session["series"][0]["has_comment"] is True
+    assert "stable" not in str(record.__dict__)
+    assert "RAS" not in str(record.__dict__)
 
 
 @pytest.mark.asyncio
