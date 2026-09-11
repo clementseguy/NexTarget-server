@@ -22,7 +22,6 @@ from ..services.oauth_state import get_state_manager
 from ..services.database import get_session
 from .oauth_utils import (
     get_or_create_user,
-    generate_token_response,
     assert_provider_configured,
 )
 

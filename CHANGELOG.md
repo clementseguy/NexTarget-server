@@ -8,6 +8,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 ## [Non publié]
 
 ### Ajouté
+- NT-156 : tables séparées pour les snapshots de sessions et leurs analyses,
+  migration Alembic, UUID applicatif stable, idempotence par empreinte et
+  contrat de débrief structuré avec fallback validé.
 - NT-161 : sous-contrat transitoire et borné pour l'exercice personnel et sa
   qualification lors d'une analyse, textes isolés comme données non fiables,
   débrief explicitement hors plan et aucune écriture dans le catalogue.
@@ -20,6 +23,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   contrat alignés.
 
 ### Modifié
+- NT-156 : prompt recentré sur une session terminée, résolution serveur des
+  exercices catalogue, résultat d'exercice calculé depuis les déclarations et
+  prochaines actions fermées, sans création d'objectif, d'exercice ou de plan.
 - NT-152 : le contrat de session du Coach accepte un `exerciseId` facultatif,
   sans identifiant de prescription ; les anciens payloads sans exercice restent
   valides.

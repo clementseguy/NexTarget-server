@@ -15,6 +15,8 @@ from app.core.config import get_settings  # noqa: E402
 from app.services.database import _normalize_database_url  # noqa: E402
 from app.models.user import User  # noqa: E402,F401
 from app.models.refresh_token import RefreshToken  # noqa: E402,F401
+from app.models.exercise import CoachCatalogExercise  # noqa: E402,F401
+from app.models.coach import CoachSession, CoachSessionAnalysis  # noqa: E402,F401
 from sqlmodel import SQLModel  # noqa: E402
 
 # this is the Alembic Config object, which provides
@@ -76,9 +78,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

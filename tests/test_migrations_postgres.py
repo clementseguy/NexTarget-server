@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, create_engine, select
 
 from app.core.config import get_settings
+from app.models.coach import CoachSession, CoachSessionAnalysis
 from app.models.refresh_token import RefreshToken
 from app.models.exercise import CoachCatalogExercise
 from app.models.user import User
@@ -60,7 +61,13 @@ def test_alembic_upgrade_creates_expected_tables(postgres_schema):
     engine = create_engine(_normalize_database_url(TEST_POSTGRES_URL))
     with engine.connect() as conn:
         tables = set(inspect(conn).get_table_names())
-    assert {"user", "refreshtoken", "coach_catalog_exercise"}.issubset(tables)
+    assert {
+        "user",
+        "refreshtoken",
+        "coach_catalog_exercise",
+        "coach_session",
+        "coach_session_analysis",
+    }.issubset(tables)
 
 
 def test_user_and_refresh_token_crud_against_postgres(postgres_schema):
@@ -116,3 +123,31 @@ def test_coach_catalog_crud_against_postgres(postgres_schema):
         exercise.is_active = False
         session.add(exercise)
         session.commit()
+
+
+def test_coach_session_and_analysis_crud_against_postgres(postgres_schema):
+    engine = create_engine(_normalize_database_url(TEST_POSTGRES_URL))
+    with Session(engine) as session:
+        coach_session = CoachSession(
+            user_id="user-1",
+            client_session_id="123e4567-e89b-42d3-a456-426614174000",
+            content_hash="hash",
+            snapshot={"series": []},
+        )
+        session.add(coach_session)
+        session.commit()
+        session.refresh(coach_session)
+
+        analysis = CoachSessionAnalysis(
+            coach_session_id=coach_session.id,
+            content_hash="hash",
+            prompt_variant="coach_neutre",
+            result={"debrief": "test"},
+            model="test-model",
+        )
+        session.add(analysis)
+        session.commit()
+
+        assert session.exec(select(CoachSessionAnalysis)).one().result == {
+            "debrief": "test"
+        }

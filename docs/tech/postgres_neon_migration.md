@@ -76,7 +76,8 @@ production n'est importée (décision NT-071).
    ```
 2. Une fois `DATABASE_URL`/`DATABASE_MIGRATION_URL` renseignées dans Render,
    déclencher un déploiement. `start.py` exécute `alembic upgrade head` avant
-   Uvicorn : le schéma (`user`, `refreshtoken`) est créé sur Neon si les
+   Uvicorn : le schéma (`user`, `refreshtoken`, `coach_catalog_exercise`,
+   `coach_session`, `coach_session_analysis`) est créé sur Neon si les
    migrations réussissent ; **le service ne démarre pas** sinon (voir
    troubleshooting dans `render_setup.md`).
 3. **Reconnexion obligatoire** : la bascule vide invalide de fait toutes les

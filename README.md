@@ -16,7 +16,11 @@
 Deux responsabilités, volontairement rien de plus :
 
 1. **Authentification OAuth** déléguée à 100 % aux Identity Providers (Google, Facebook) — aucun mot de passe stocké. JWT courts (callback 10 min / access 60 min) + **refresh tokens avec rotation** et détection de rejeu.
-2. **Proxy Coach IA** : `POST /coach/analyze-session` appelle Mistral côté serveur — la clé API et le prompt **ne transitent jamais par le client**. Multi-personas (`coach_neutre`, `coach_cool`), protégé par JWT et rate-limité.
+2. **Coach de session** : `POST /coach/analyze-session` persiste à la demande la
+   session identifiée par UUID, déduplique les analyses inchangées et appelle
+   Mistral côté serveur pour un débrief structuré. La clé et le prompt ne
+   transitent jamais par le client. Les variantes existantes
+   (`coach_neutre`, `coach_cool`) restent protégées par JWT et rate-limitées.
 
 ## API
 
@@ -30,7 +34,7 @@ Deux responsabilités, volontairement rien de plus :
 | `POST /auth/token/refresh` | Rotation du refresh token (usage unique, rejeu ⇒ révocation de famille) |
 | `POST /auth/token/revoke` | Révocation (logout), 204 idempotent |
 | `GET /users/me` · `PATCH /users/me/profile` | Profil utilisateur (JWT) |
-| `POST /coach/analyze-session` | Analyse coach IA (JWT + rate limit 10/5 min) |
+| `POST /coach/analyze-session` | Débrief structuré et idempotent d'une session (JWT + rate limit 10/5 min) |
 | `GET /app/admin/users` | Page HTML read-only des utilisateurs (hors API REST, HTTP Basic sur HTTPS) |
 
 Swagger : `http://localhost:8000/docs` · OpenAPI courant : `http://localhost:8000/openapi.json`

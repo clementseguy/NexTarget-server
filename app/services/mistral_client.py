@@ -4,6 +4,7 @@
 côté app (lib/services/coach_analysis_service.dart). La clé API
 Mistral ne quitte jamais le serveur.
 """
+
 import httpx
 
 from ..core.config import get_settings
@@ -29,7 +30,9 @@ async def fetch_analysis(prompt: str) -> str:
     url = f"{settings.mistral_api_base}/chat/completions"
 
     try:
-        async with httpx.AsyncClient(timeout=settings.mistral_timeout_seconds) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.mistral_timeout_seconds
+        ) as client:
             response = await client.post(
                 url,
                 headers={
@@ -39,6 +42,7 @@ async def fetch_analysis(prompt: str) -> str:
                 json={
                     "model": settings.mistral_model,
                     "messages": [{"role": "user", "content": prompt}],
+                    "response_format": {"type": "json_object"},
                 },
             )
     except httpx.TimeoutException:
@@ -47,13 +51,21 @@ async def fetch_analysis(prompt: str) -> str:
         raise MistralClientError(f"Erreur réseau vers Mistral: {e}", status_code=502)
 
     if response.status_code == 401:
-        raise MistralClientError("Clé API Mistral invalide côté serveur.", status_code=500)
+        raise MistralClientError(
+            "Clé API Mistral invalide côté serveur.", status_code=500
+        )
     if response.status_code == 429:
-        raise MistralClientError("Trop de requêtes vers Mistral, réessayez plus tard.", status_code=429)
+        raise MistralClientError(
+            "Trop de requêtes vers Mistral, réessayez plus tard.", status_code=429
+        )
     if response.status_code >= 500:
-        raise MistralClientError(f"Erreur serveur Mistral ({response.status_code}).", status_code=502)
+        raise MistralClientError(
+            f"Erreur serveur Mistral ({response.status_code}).", status_code=502
+        )
     if response.status_code < 200 or response.status_code >= 300:
-        raise MistralClientError(f"Erreur HTTP Mistral ({response.status_code}).", status_code=502)
+        raise MistralClientError(
+            f"Erreur HTTP Mistral ({response.status_code}).", status_code=502
+        )
 
     data = response.json()
     try:

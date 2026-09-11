@@ -16,9 +16,9 @@ def _normalize_database_url(url: str) -> str:
     explicit and reproducible across environments.
     """
     if url.startswith("postgres://"):
-        return "postgresql+psycopg2://" + url[len("postgres://"):]
+        return "postgresql+psycopg2://" + url[len("postgres://") :]
     if url.startswith("postgresql://") and "+psycopg2" not in url:
-        return "postgresql+psycopg2://" + url[len("postgresql://"):]
+        return "postgresql+psycopg2://" + url[len("postgresql://") :]
     return url
 
 
@@ -38,6 +38,7 @@ engine = create_engine(
 from ..models.user import User  # noqa: E402,F401
 from ..models.refresh_token import RefreshToken  # noqa: E402,F401
 from ..models.exercise import CoachCatalogExercise  # noqa: E402,F401
+from ..models.coach import CoachSession, CoachSessionAnalysis  # noqa: E402,F401
 
 
 def init_db() -> None:
