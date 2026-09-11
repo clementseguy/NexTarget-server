@@ -7,6 +7,11 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+### Ajouté
+- NT-159 : modèle Exercise non persistant et schéma JSON complet alignés sur
+  l'app, avec provenance contrôlée `personal` ou `coach_catalog` et tests de
+  contrat alignés.
+
 ### Modifié
 - NT-152 : le contrat de session du Coach accepte un `exerciseId` facultatif,
   sans identifiant de prescription ; les anciens payloads sans exercice restent
