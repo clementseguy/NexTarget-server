@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .core.config import get_settings
 from .core.logging import get_logger, request_id_var, setup_logging
 from .services.database import init_db
-from .api import admin, auth_google, auth_facebook, auth_token, users, coach
+from .api import admin, auth_google, auth_facebook, auth_token, coach, exercises, users
 
 settings = get_settings()
 
@@ -209,6 +209,9 @@ app.include_router(users.router)
 
 # Coach IA (proxy Mistral)
 app.include_router(coach.router)
+
+# Read-only Coach exercise catalog
+app.include_router(exercises.router)
 
 # Read-only administration (NT-049)
 app.include_router(admin.router)

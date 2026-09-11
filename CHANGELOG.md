@@ -8,6 +8,10 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 ## [Non publié]
 
 ### Ajouté
+- NT-160 : table du catalogue Coach avec état `is_active` vrai par défaut et
+  unique endpoint public en lecture ciblée `GET /exercises/{exercise_id}` ; les
+  exercices absents ou inactifs restent indistinguables et aucune API de liste
+  ou de mutation n'est exposée.
 - NT-159 : modèle Exercise non persistant et schéma JSON complet alignés sur
   l'app, avec provenance contrôlée `personal` ou `coach_catalog` et tests de
   contrat alignés.

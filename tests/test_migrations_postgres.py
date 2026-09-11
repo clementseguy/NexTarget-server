@@ -9,7 +9,9 @@ Local run example:
     NEXTARGET_TEST_POSTGRES_URL=postgresql://localhost/nextarget_test \
         pytest tests/test_migrations_postgres.py -v
 """
+
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -21,6 +23,7 @@ from sqlmodel import Session, create_engine, select
 
 from app.core.config import get_settings
 from app.models.refresh_token import RefreshToken
+from app.models.exercise import CoachCatalogExercise
 from app.models.user import User
 from app.services.database import _normalize_database_url
 
@@ -57,7 +60,7 @@ def test_alembic_upgrade_creates_expected_tables(postgres_schema):
     engine = create_engine(_normalize_database_url(TEST_POSTGRES_URL))
     with engine.connect() as conn:
         tables = set(inspect(conn).get_table_names())
-    assert {"user", "refreshtoken"}.issubset(tables)
+    assert {"user", "refreshtoken", "coach_catalog_exercise"}.issubset(tables)
 
 
 def test_user_and_refresh_token_crud_against_postgres(postgres_schema):
@@ -92,3 +95,24 @@ def test_duplicate_email_provider_is_rejected_by_unique_constraint(postgres_sche
         session.add(User(email="dup@example.com", provider="google"))
         with pytest.raises(IntegrityError):
             session.commit()
+
+
+def test_coach_catalog_crud_against_postgres(postgres_schema):
+    engine = create_engine(_normalize_database_url(TEST_POSTGRES_URL))
+    with Session(engine) as session:
+        exercise = CoachCatalogExercise(
+            id="coach-postgres-fixture",
+            name="Fixture Coach",
+            category="technique",
+            type="stand",
+            origin="coach_catalog",
+            createdAt=datetime(2026, 9, 11),
+        )
+        session.add(exercise)
+        session.commit()
+        session.refresh(exercise)
+
+        assert exercise.is_active is True
+        exercise.is_active = False
+        session.add(exercise)
+        session.commit()

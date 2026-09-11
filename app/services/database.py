@@ -35,8 +35,9 @@ engine = create_engine(
 )
 
 # Ensure models imported so metadata includes all tables
-from ..models.user import User  # noqa: F401
-from ..models.refresh_token import RefreshToken  # noqa: F401
+from ..models.user import User  # noqa: E402,F401
+from ..models.refresh_token import RefreshToken  # noqa: E402,F401
+from ..models.exercise import CoachCatalogExercise  # noqa: E402,F401
 
 
 def init_db() -> None:

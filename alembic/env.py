@@ -5,7 +5,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# Make the SQLModel metadata (User, RefreshToken) the autogenerate target,
+# Make the SQLModel metadata (User, RefreshToken, CoachCatalogExercise) the
+# autogenerate target,
 # and the app's own settings/URL-normalization the source of truth for the
 # connection (NT-071): Alembic always uses DATABASE_MIGRATION_URL (direct
 # connection, owner role) when set, falling back to DATABASE_URL otherwise

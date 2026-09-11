@@ -6,18 +6,20 @@ NexTarget-server porte l'authentification sociale, le profil distant et le proxy
 
 | Couche | Responsabilité |
 |---|---|
-| `app/api/` | Validation HTTP et orchestration des routes OAuth, tokens, utilisateurs, Coach et administration |
+| `app/api/` | Validation HTTP et orchestration des routes OAuth, tokens, utilisateurs, Coach, exercices et administration |
 | `app/core/` | Configuration, JWT, constantes OAuth et logs structurés |
 | `app/services/` | Base de données, state OAuth, refresh tokens, prompt, Mistral, rate limiting et auth admin |
-| `app/models/` | Tables SQLModel `User` et `RefreshToken`, modèle non tabulaire `Exercise` |
+| `app/models/` | Tables SQLModel `User`, `RefreshToken` et `CoachCatalogExercise`, contrat commun `Exercise` |
 | `app/schemas/` | Contrats Pydantic des utilisateurs, du Coach et d'Exercise |
 | `alembic/versions/` | Source de vérité du schéma PostgreSQL de production |
 
 Les couches `core`, `services`, `models` et `schemas` ne dépendent pas des handlers HTTP. Pour Coach, la construction du prompt et l'appel réseau à Mistral sont délégués aux services. Les callbacks OAuth font actuellement exception : les routes Google et Facebook réalisent directement les échanges HTTP avec leur fournisseur.
 
 Le modèle `Exercise` partagé reprend les champs et noms JSON de l'app, dont la
-provenance contrôlée `personal` ou `coach_catalog`. Il ne crée aucune table : la
-persistance et l'API du catalogue relèvent de NT-160.
+provenance contrôlée `personal` ou `coach_catalog`. La table
+`coach_catalog_exercise` accepte uniquement cette seconde provenance et ajoute
+le seul état technique `is_active`, vrai par défaut. Elle reste vide tant
+qu'aucun contenu validé n'est chargé hors de l'API cliente.
 
 ## Routes actives
 
@@ -34,6 +36,7 @@ persistance et l'API du catalogue relèvent de NT-160.
 | `GET /users/me` | Bearer JWT | profil courant |
 | `PATCH /users/me/profile` | Bearer JWT | nom affiché et/ou niveau d'expérience |
 | `POST /coach/analyze-session` | Bearer JWT | analyse Mistral d'une session détaillée ; `exerciseId` facultatif identifie son exercice principal |
+| `GET /exercises/{exercise_id}` | public | lecture ciblée d'un exercice Coach actif ; aucun parcours ni mutation |
 | `GET /app/admin/users` | HTTP Basic | consultation read-only des utilisateurs |
 | `GET /` | public | landing page statique |
 
