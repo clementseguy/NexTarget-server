@@ -8,6 +8,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 ## [Non publié]
 
 ### Ajouté
+- NT-161 : sous-contrat transitoire et borné pour l'exercice personnel et sa
+  qualification lors d'une analyse, textes isolés comme données non fiables,
+  débrief explicitement hors plan et aucune écriture dans le catalogue.
 - NT-160 : table du catalogue Coach avec état `is_active` vrai par défaut et
   unique endpoint public en lecture ciblée `GET /exercises/{exercise_id}` ; les
   exercices absents ou inactifs restent indistinguables et aucune API de liste

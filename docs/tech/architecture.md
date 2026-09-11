@@ -35,7 +35,7 @@ qu'aucun contenu validé n'est chargé hors de l'API cliente.
 | `POST /auth/token/revoke` | refresh token | révoque la famille, réponse 204 idempotente |
 | `GET /users/me` | Bearer JWT | profil courant |
 | `PATCH /users/me/profile` | Bearer JWT | nom affiché et/ou niveau d'expérience |
-| `POST /coach/analyze-session` | Bearer JWT | analyse Mistral d'une session détaillée ; `exerciseId` facultatif identifie son exercice principal |
+| `POST /coach/analyze-session` | Bearer JWT | analyse Mistral d'une session détaillée ; `exerciseId` facultatif identifie son exercice principal et `personal_exercise` transporte son instantané ponctuel |
 | `GET /exercises/{exercise_id}` | public | lecture ciblée d'un exercice Coach actif ; aucun parcours ni mutation |
 | `GET /app/admin/users` | HTTP Basic | consultation read-only des utilisateurs |
 | `GET /` | public | landing page statique |
@@ -56,6 +56,28 @@ Le state OAuth est consommé une seule fois. Pour Google, le `id_token` est vér
 ## Coach IA
 
 Le handler applique la limite par utilisateur, valide la variante de prompt, construit le prompt depuis un template serveur et appelle Mistral avec timeout. Le client n'envoie ni clé ni prompt complet. Les variantes livrées sont `coach_neutre` et `coach_cool`.
+
+Pour un exercice personnel, `session.personal_exercise` est un contrat transitoire
+strict : `id` (128 caractères), `name` (120), `origin` fixé à `personal`,
+`description` facultative (2 000) et au plus 20 `consignes` de 500 caractères.
+`session.exercise_execution` contient uniquement `performed` booléen facultatif,
+`protocol_followed` facultatif parmi `yes`, `partially`, `no`, et `comment`
+facultatif (1 000 caractères). L'identifiant de l'instantané doit correspondre à
+`exerciseId`; une qualification sans instantané personnel est refusée. Les
+commentaires de série sont limités à 1 000 caractères, la synthèse à 2 000, la
+liste à 100 séries, chaque nombre de coups à l'intervalle 1 à 1 000 et les textes
+arme/calibre à 120 caractères.
+
+Tous les champs texte sont sérialisés dans un bloc explicitement désigné comme
+données utilisateur non fiables, avec échappement des délimiteurs ; le modèle
+reçoit l'ordre de ne suivre aucune instruction qu'ils contiendraient. Pour cet
+exercice, le Coach se limite à la session, à `performed`, à
+`protocol_followed` et aux commentaires. Une réalisation déclarée fausse est
+évaluable ; une réalisation vraie exige un suivi de protocole renseigné ; les
+autres cas sont annoncés non évaluables. Aucun critère de réussite métier n'est
+exigé. La réponse reçoit déterministiquement la mention « Exercice personnel
+hors plan de formation ». Le handler n'utilise aucun service de catalogue et ne
+persiste ni session, analyse ou instantané.
 
 Le state OAuth et la limite Coach restent en mémoire et supposent une seule instance. PostgreSQL ne rend pas ces composants multi-instance.
 

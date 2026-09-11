@@ -40,10 +40,9 @@ async def analyze_session(
                 session.dict(by_alias=True, exclude_unset=True).keys()
             ),
             "session": {
-                "weapon": session.weapon,
-                "caliber": session.caliber,
+                "has_weapon": bool(session.weapon),
+                "has_caliber": bool(session.caliber),
                 "date": session.date.isoformat() if session.date else None,
-                "exercise_id": session.exercise_id,
                 "has_exercise": session.exercise_id is not None,
                 "series_count": len(session.series),
                 "series": [
@@ -57,6 +56,8 @@ async def analyze_session(
                     for series in session.series
                 ],
                 "has_synthese": bool(session.synthese),
+                "has_personal_exercise": session.personal_exercise is not None,
+                "has_exercise_execution": session.exercise_execution is not None,
             },
         },
     )
@@ -75,6 +76,9 @@ async def analyze_session(
         analysis = await mistral_client.fetch_analysis(prompt)
     except mistral_client.MistralClientError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    if session.personal_exercise is not None:
+        analysis = f"Exercice personnel hors plan de formation.\n\n{analysis}"
 
     settings = get_settings()
     return AnalyzeSessionResponse(
