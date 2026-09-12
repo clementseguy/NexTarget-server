@@ -30,7 +30,6 @@ logger = get_logger("nextarget.coach")
 
 @router.post(
     "/analyze-session",
-    response_model=AnalyzeSessionResponse,
     responses={
         422: {"description": "Unknown prompt variant or unavailable exercise"},
         429: {"description": "Coach analysis rate limit exceeded"},
