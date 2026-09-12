@@ -9,7 +9,9 @@ Local run example:
     NEXTARGET_TEST_POSTGRES_URL=postgresql://localhost/nextarget_test \
         pytest tests/test_migrations_postgres.py -v
 """
+
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -20,7 +22,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, create_engine, select
 
 from app.core.config import get_settings
+from app.models.coach import CoachSession, CoachSessionAnalysis
 from app.models.refresh_token import RefreshToken
+from app.models.exercise import CoachCatalogExercise
 from app.models.user import User
 from app.services.database import _normalize_database_url
 
@@ -57,7 +61,13 @@ def test_alembic_upgrade_creates_expected_tables(postgres_schema):
     engine = create_engine(_normalize_database_url(TEST_POSTGRES_URL))
     with engine.connect() as conn:
         tables = set(inspect(conn).get_table_names())
-    assert {"user", "refreshtoken"}.issubset(tables)
+    assert {
+        "user",
+        "refreshtoken",
+        "coach_catalog_exercise",
+        "coach_session",
+        "coach_session_analysis",
+    }.issubset(tables)
 
 
 def test_user_and_refresh_token_crud_against_postgres(postgres_schema):
@@ -92,3 +102,52 @@ def test_duplicate_email_provider_is_rejected_by_unique_constraint(postgres_sche
         session.add(User(email="dup@example.com", provider="google"))
         with pytest.raises(IntegrityError):
             session.commit()
+
+
+def test_coach_catalog_crud_against_postgres(postgres_schema):
+    engine = create_engine(_normalize_database_url(TEST_POSTGRES_URL))
+    with Session(engine) as session:
+        exercise = CoachCatalogExercise(
+            id="coach-postgres-fixture",
+            name="Fixture Coach",
+            category="technique",
+            type="stand",
+            origin="coach_catalog",
+            createdAt=datetime(2026, 9, 11),
+        )
+        session.add(exercise)
+        session.commit()
+        session.refresh(exercise)
+
+        assert exercise.is_active is True
+        exercise.is_active = False
+        session.add(exercise)
+        session.commit()
+
+
+def test_coach_session_and_analysis_crud_against_postgres(postgres_schema):
+    engine = create_engine(_normalize_database_url(TEST_POSTGRES_URL))
+    with Session(engine) as session:
+        coach_session = CoachSession(
+            user_id="user-1",
+            client_session_id="123e4567-e89b-42d3-a456-426614174000",
+            content_hash="hash",
+            snapshot={"series": []},
+        )
+        session.add(coach_session)
+        session.commit()
+        session.refresh(coach_session)
+
+        analysis = CoachSessionAnalysis(
+            coach_session_id=coach_session.id,
+            content_hash="hash",
+            prompt_variant="coach_neutre",
+            result={"debrief": "test"},
+            model="test-model",
+        )
+        session.add(analysis)
+        session.commit()
+
+        assert session.exec(select(CoachSessionAnalysis)).one().result == {
+            "debrief": "test"
+        }

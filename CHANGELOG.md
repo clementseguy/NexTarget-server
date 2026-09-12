@@ -5,6 +5,34 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Non publié]
+
+### Ajouté
+- NT-156 : tables séparées pour les snapshots de sessions et leurs analyses,
+  migration Alembic, UUID applicatif stable, idempotence par empreinte et
+  contrat de débrief structuré avec fallback validé.
+- NT-161 : sous-contrat transitoire et borné pour l'exercice personnel et sa
+  qualification lors d'une analyse, textes isolés comme données non fiables,
+  débrief explicitement hors plan et aucune écriture dans le catalogue.
+- NT-160 : table du catalogue Coach avec état `is_active` vrai par défaut et
+  unique endpoint public en lecture ciblée `GET /exercises/{exercise_id}` ; les
+  exercices absents ou inactifs restent indistinguables et aucune API de liste
+  ou de mutation n'est exposée.
+- NT-159 : modèle Exercise non persistant et schéma JSON complet alignés sur
+  l'app, avec provenance contrôlée `personal` ou `coach_catalog` et tests de
+  contrat alignés.
+
+### Modifié
+- Maintenance : migration du hook de démarrage FastAPI vers `lifespan` et
+  sérialisation du contrat Exercise sans appel à l'alias `SQLModel.dict()`
+  déprécié.
+- NT-156 : prompt recentré sur une session terminée, résolution serveur des
+  exercices catalogue, résultat d'exercice calculé depuis les déclarations et
+  prochaines actions fermées, sans création d'objectif, d'exercice ou de plan.
+- NT-152 : le contrat de session du Coach accepte un `exerciseId` facultatif,
+  sans identifiant de prescription ; les anciens payloads sans exercice restent
+  valides.
+
 ## [0.3.0] - 2026-09-02
 
 ### Ajouté

@@ -7,9 +7,11 @@ __pycache__/
 .mypy_cache
 .idea/
 .vscode/
+# dossiers venv
 venv/
 .venv/
 .env.*
+.venv.*/
 # ... mais le fichier d'exemple (sans secret) est versionné
 !.env.example
 data.db

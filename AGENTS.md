@@ -213,7 +213,8 @@ Critiques. Ne jamais introduire de régression.
 - **SQLite pour le dev local et les tests unitaires uniquement** (NT-071) ; la production utilise PostgreSQL Neon via Alembic — ne pas réintroduire `SQLModel.metadata.create_all()` comme source de vérité du schéma de production.
 - **State OAuth ET rate limiter en mémoire** (dict/deque in-process) : suffisant en single-instance. NT-071 corrige la persistance relationnelle (utilisateurs, refresh tokens) mais ne rend pas ces composants multi-instance ; Redis resterait nécessaire pour ça (hors périmètre).
 - **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
-- **`@app.on_event("startup")`** : legacy FastAPI, migration vers lifespan non prioritaire.
+- **Lifespan FastAPI** : `init_db()` s'exécute au démarrage via le gestionnaire
+  `lifespan` de `app/main.py`.
 
 ## Commandes de référence
 
