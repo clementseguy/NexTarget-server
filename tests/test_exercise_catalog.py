@@ -44,15 +44,16 @@ def test_catalog_persists_only_coach_exercises_and_defaults_to_active():
 
     assert exercise.id == "coach-fixture"
 
+    personal_exercise = {
+        "id": "personal",
+        "name": "Personnel",
+        "category": "precision",
+        "type": "stand",
+        "origin": "personal",
+        "createdAt": datetime(2026, 9, 11, tzinfo=timezone.utc),
+    }
     with pytest.raises(ValueError, match="coach_catalog"):
-        CoachCatalogExercise(
-            id="personal",
-            name="Personnel",
-            category="precision",
-            type="stand",
-            origin="personal",
-            createdAt=datetime(2026, 9, 11, tzinfo=timezone.utc),
-        )
+        CoachCatalogExercise(**personal_exercise)
 
 
 async def test_get_active_catalog_exercise_by_id():

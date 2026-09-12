@@ -5,7 +5,6 @@ import hashlib
 import json
 from typing import Dict, Optional, Tuple
 
-from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -161,7 +160,7 @@ def parse_debrief(raw: str, session: SessionIn) -> Tuple[CoachDebrief, bool]:
             value = "\n".join(lines[1:-1])
         parsed = CoachDebrief.parse_obj(json.loads(value))
         used_fallback = False
-    except (json.JSONDecodeError, ValidationError, TypeError, ValueError):
+    except (TypeError, ValueError):
         parsed = _fallback_debrief(session)
         used_fallback = True
 

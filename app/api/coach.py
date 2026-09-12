@@ -1,6 +1,6 @@
 from datetime import timezone
 import json
-from typing import Dict, Optional
+from typing import Annotated, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -28,11 +28,18 @@ router = APIRouter(prefix="/coach", tags=["coach"])
 logger = get_logger("nextarget.coach")
 
 
-@router.post("/analyze-session", response_model=AnalyzeSessionResponse)
+@router.post(
+    "/analyze-session",
+    response_model=AnalyzeSessionResponse,
+    responses={
+        422: {"description": "Unknown prompt variant or unavailable exercise"},
+        429: {"description": "Coach analysis rate limit exceeded"},
+    },
+)
 async def analyze_session(
     payload: AnalyzeSessionRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_session),
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_session)],
 ) -> AnalyzeSessionResponse:
     """Persist and debrief one completed session through a single model call.
 
