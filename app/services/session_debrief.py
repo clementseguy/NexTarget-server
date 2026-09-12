@@ -1,9 +1,11 @@
 """Session snapshot idempotence and structured debrief validation."""
 
+import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
-from typing import Dict, Optional, Tuple
+from typing import AsyncIterator, Dict, Optional, Tuple
 
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -19,6 +21,25 @@ from ..schemas.coach import (
 
 
 CONTRACT_VERSION = 1
+_analysis_locks: Dict[str, asyncio.Lock] = {}
+_analysis_lock_users: Dict[str, int] = {}
+
+
+@asynccontextmanager
+async def analysis_request_lock(key: str) -> AsyncIterator[None]:
+    """Serialize analyses for one user session in the supported single instance."""
+    lock = _analysis_locks.setdefault(key, asyncio.Lock())
+    _analysis_lock_users[key] = _analysis_lock_users.get(key, 0) + 1
+    try:
+        async with lock:
+            yield
+    finally:
+        remaining = _analysis_lock_users[key] - 1
+        if remaining == 0:
+            _analysis_lock_users.pop(key, None)
+            _analysis_locks.pop(key, None)
+        else:
+            _analysis_lock_users[key] = remaining
 
 
 def build_snapshot(
@@ -103,6 +124,25 @@ def find_analysis(
             CoachSessionAnalysis.prompt_variant == prompt_variant,
         )
     ).first()
+
+
+def find_analysis_for_client_session(
+    db: Session,
+    user_id: str,
+    client_session_id: str,
+    snapshot_hash: str,
+    prompt_variant: str,
+) -> Optional[CoachSessionAnalysis]:
+    """Find an exact replay before writing or consuming a rate-limit slot."""
+    record = db.exec(
+        select(CoachSession).where(
+            CoachSession.user_id == user_id,
+            CoachSession.client_session_id == client_session_id,
+        )
+    ).first()
+    if record is None:
+        return None
+    return find_analysis(db, record.id, snapshot_hash, prompt_variant)
 
 
 def persist_analysis(

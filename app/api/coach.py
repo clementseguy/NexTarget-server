@@ -15,9 +15,11 @@ from ..services.database import get_session
 from ..services.prompt_builder import build_prompt, UnknownPromptVariantError
 from ..services.rate_limiter import coach_rate_limiter
 from ..services.session_debrief import (
+    analysis_request_lock,
     build_snapshot,
     content_hash,
     find_analysis,
+    find_analysis_for_client_session,
     parse_debrief,
     persist_analysis,
     upsert_session,
@@ -82,62 +84,78 @@ async def analyze_session(
         },
     )
 
-    try:
-        exercise = _resolve_exercise(db, session)
-        prompt = build_prompt(
-            session,
-            payload.prompt_variant,
-            payload.experience_level.value if payload.experience_level else None,
-            exercise,
-        )
-    except UnknownPromptVariantError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
+    exercise = _resolve_exercise(db, session)
+    experience_level = (
+        payload.experience_level.value if payload.experience_level else None
+    )
     snapshot = build_snapshot(
         session,
-        payload.experience_level.value if payload.experience_level else None,
+        experience_level,
         exercise,
     )
     snapshot_hash = content_hash(snapshot)
-    persisted_session = upsert_session(
-        db,
-        current_user.id,
-        str(session.session_id),
-        snapshot,
-        snapshot_hash,
-    )
-    existing = find_analysis(
-        db, persisted_session.id, snapshot_hash, payload.prompt_variant
-    )
-    if existing is not None:
-        return _response(existing, session.session_id, reused=True)
-
-    if not coach_rate_limiter.allow(current_user.id):
-        raise HTTPException(
-            status_code=429, detail="Trop de requêtes, réessayez plus tard."
+    client_session_id = str(session.session_id)
+    lock_key = f"{current_user.id}:{client_session_id}"
+    async with analysis_request_lock(lock_key):
+        existing = find_analysis_for_client_session(
+            db,
+            current_user.id,
+            client_session_id,
+            snapshot_hash,
+            payload.prompt_variant,
         )
+        if existing is not None:
+            return _response(existing, session.session_id, reused=True)
 
-    try:
-        raw_analysis = await mistral_client.fetch_analysis(prompt)
-    except mistral_client.MistralClientError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+        if not coach_rate_limiter.allow(current_user.id):
+            raise HTTPException(
+                status_code=429, detail="Trop de requêtes, réessayez plus tard."
+            )
 
-    settings = get_settings()
-    debrief, used_fallback = parse_debrief(raw_analysis, session)
-    if used_fallback:
-        logger.warning(
-            "invalid structured coach response",
-            extra={"client_session_id": str(session.session_id)},
+        try:
+            prompt = build_prompt(
+                session,
+                payload.prompt_variant,
+                experience_level,
+                exercise,
+            )
+        except UnknownPromptVariantError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        persisted_session = upsert_session(
+            db,
+            current_user.id,
+            client_session_id,
+            snapshot,
+            snapshot_hash,
         )
-    analysis = persist_analysis(
-        db,
-        persisted_session.id,
-        snapshot_hash,
-        payload.prompt_variant,
-        debrief,
-        settings.mistral_model,
-    )
-    return _response(analysis, session.session_id, reused=False)
+        existing = find_analysis(
+            db, persisted_session.id, snapshot_hash, payload.prompt_variant
+        )
+        if existing is not None:
+            return _response(existing, session.session_id, reused=True)
+
+        try:
+            raw_analysis = await mistral_client.fetch_analysis(prompt)
+        except mistral_client.MistralClientError as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
+
+        settings = get_settings()
+        debrief, used_fallback = parse_debrief(raw_analysis, session)
+        if used_fallback:
+            logger.warning(
+                "invalid structured coach response",
+                extra={"client_session_id": client_session_id},
+            )
+        analysis = persist_analysis(
+            db,
+            persisted_session.id,
+            snapshot_hash,
+            payload.prompt_variant,
+            debrief,
+            settings.mistral_model,
+        )
+        return _response(analysis, session.session_id, reused=False)
 
 
 def _resolve_exercise(db: Session, session: SessionIn) -> Optional[Dict[str, object]]:

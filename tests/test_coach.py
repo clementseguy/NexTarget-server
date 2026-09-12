@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from copy import deepcopy
@@ -183,6 +184,38 @@ async def test_unchanged_session_reuses_analysis_without_model_call_or_rate_limi
 
 
 @pytest.mark.asyncio
+async def test_concurrent_replay_calls_model_once():
+    user = _make_user()
+    token = create_access_token(sub=user.id)
+    payload = _payload()
+
+    async def delayed_response(_prompt):
+        await asyncio.sleep(0.05)
+        return MODEL_RESPONSE
+
+    fetch = AsyncMock(side_effect=delayed_response)
+    with patch("app.api.coach.mistral_client.fetch_analysis", new=fetch):
+        async with client() as ac:
+            first, second = await asyncio.gather(
+                ac.post(
+                    "/coach/analyze-session",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                ),
+                ac.post(
+                    "/coach/analyze-session",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {token}"},
+                ),
+            )
+
+    assert first.status_code == second.status_code == 200
+    assert first.json()["analysis_id"] == second.json()["analysis_id"]
+    assert {first.json()["reused"], second.json()["reused"]} == {False, True}
+    assert fetch.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_changed_session_updates_snapshot_and_creates_new_analysis():
     user = _make_user()
     token = create_access_token(sub=user.id)
@@ -344,10 +377,8 @@ async def test_unknown_prompt_variant_is_rejected_without_persistence():
 async def test_rate_limit_applies_only_to_new_analyses():
     user = _make_user()
     token = create_access_token(sub=user.id)
-    with patch(
-        "app.api.coach.mistral_client.fetch_analysis",
-        new=AsyncMock(return_value=MODEL_RESPONSE),
-    ):
+    fetch = AsyncMock(return_value=MODEL_RESPONSE)
+    with patch("app.api.coach.mistral_client.fetch_analysis", new=fetch):
         async with client() as ac:
             statuses = []
             for _ in range(11):
@@ -362,6 +393,10 @@ async def test_rate_limit_applies_only_to_new_analyses():
                 )
     assert statuses.count(200) == 10
     assert statuses[-1] == 429
+    assert fetch.await_count == 10
+    with Session(engine) as db:
+        assert len(db.exec(select(CoachSession)).all()) == 10
+        assert len(db.exec(select(CoachSessionAnalysis)).all()) == 10
 
 
 @pytest.mark.asyncio
