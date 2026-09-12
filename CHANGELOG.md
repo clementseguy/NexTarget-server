@@ -23,6 +23,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   contrat alignés.
 
 ### Modifié
+- Maintenance : migration du hook de démarrage FastAPI vers `lifespan` et
+  sérialisation du contrat Exercise sans appel à l'alias `SQLModel.dict()`
+  déprécié.
 - NT-156 : prompt recentré sur une session terminée, résolution serveur des
   exercices catalogue, résultat d'exercice calculé depuis les déclarations et
   prochaines actions fermées, sans création d'objectif, d'exercice ou de plan.
