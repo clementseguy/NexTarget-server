@@ -1,244 +1,81 @@
 # AGENTS.md — NexTarget Server
 
-Instructions pour les agents de développement IA travaillant sur ce dépôt.
-Objectif : code cohérent avec l'existant et **qualité élevée** (ce repo doit
-pouvoir être partagé sans réserve).
+Instructions pour les agents travaillant sur le serveur FastAPI de NexTarget.
 
-## Projet
+## Projet et sources
 
-Backend de l'app mobile NexTarget. Deux responsabilités :
+- Python 3.11, FastAPI, SQLModel, Pydantic v1.
+- SQLite en développement/tests ; PostgreSQL et Alembic en production.
+- Responsabilités : OAuth/profil et proxy Coach IA authentifié.
+- Code et docstrings en anglais ; documentation en français.
+- Le backlog canonique vit dans `../NexTarget-app/docs/backlog/`. Pour une US :
+  `bash ../NexTarget-app/scripts/us_context.sh NT-XXX`.
 
-1. **Authentification OAuth** déléguée à 100 % à des Identity Providers externes
-   (Google, Facebook). Aucun mot de passe stocké.
-2. **Proxy Coach IA** : endpoint `POST /coach/analyze-session` qui appelle Mistral
-   côté serveur, pour que la **clé API et le prompt ne transitent jamais par le
-   client**. Protégé par JWT (« coach connecté uniquement ») et rate-limité.
+Lire uniquement la documentation utile à la tâche :
 
-> Ce backend **n'est plus « OAuth-only sans IA »** : cette description
-> historique (ancien `Backlog v0.1`) est périmée. La brique Coach IA fait
-> pleinement partie du serveur.
+| Besoin | Référence |
+|---|---|
+| Architecture, routes, contrats, sécurité | `docs/tech/architecture.md` |
+| Environnement local | `docs/guides/quickstart.md` |
+| PostgreSQL et Alembic | `docs/tech/postgres_neon_migration.md` |
+| Déploiement | `docs/tech/render_setup.md` |
+| Administration | `docs/guides/admin-read-only.md` |
 
-- **Stack** : Python **3.11**, FastAPI, SQLModel, SQLite en développement/tests, PostgreSQL en production, PyJWT, httpx, Pydantic **v1**
-- **Coach IA** : Mistral via httpx (`mistral_api_base`, `mistral_model` configurables)
-- **Déploiement** : Render.com (free tier, région Frankfurt), config dans `render.yaml`
-- **Langue du code** : anglais (noms, docstrings, messages d'erreur)
-- **Langue de la documentation** : français
-
-## Source de vérité produit
-
-Le **quoi/pourquoi** vit dans les documents du backlog hébergés dans le repo
-**NexTarget-app** (pas ici) :
-
-- **Backlog unifié** : `NexTarget-app/docs/backlog/backlog-unifie.md` — inventaire et statut.
-- **Descriptions** : `NexTarget-app/docs/backlog/descriptions.md` — définition fonctionnelle et critères d'acceptation.
-- **Priorités** : `NexTarget-app/docs/backlog/priorites.md` — ordre de traitement courant.
-- **Journal** : `NexTarget-app/docs/backlog/journal/` — décisions et livraisons significatives.
-- **Archives** : `NexTarget-app/docs/backlog/archive/` — US archivées par année d'archivage.
-- **Gouvernance / DoD / convention d'IDs** : `NexTarget-app/docs/backlog/README.md`
-
-Ce repo ne maintient aucun backlog propre ni copie locale. Ne jamais recopier
-ici les items, statuts, périmètres ou critères d'acceptation : toute mise à jour
-doit être faite exclusivement dans **NexTarget-app**. Les items concernant ce
-serveur sont ceux dont la portée vaut `server` ou `both` dans le backlog unifié.
-En cas de conflit sur le périmètre produit, **le backlog prime** ; cet `AGENTS.md`
-fait autorité sur le **comment**.
+Le code, les tests et l'OpenAPI généré par FastAPI restent les références du
+comportement exécuté. Ne créer aucun backlog ou snapshot OpenAPI local.
 
 ## Architecture
 
-```
-alembic.ini            # Config Alembic (URL résolue dynamiquement dans alembic/env.py)
-alembic/
-  env.py                # Cible SQLModel.metadata ; URL = DATABASE_MIGRATION_URL ou DATABASE_URL
-  versions/             # Migrations (source de vérité du schéma de prod — NT-071)
-scripts/
-  run_migrations.py     # `alembic upgrade head` exécuté avant Uvicorn (start.py)
-app/
-  main.py              # App FastAPI, CORS, routers, startup (init_db)
-  api/                 # Endpoints HTTP (couche présentation)
-    auth_google.py     # OAuth Google (login, callback)
-    auth_facebook.py   # OAuth Facebook (start, callback)
-    auth_token.py      # Échange callback token → access token
-    users.py           # Endpoints protégés (/users/me)
-    coach.py           # Coach IA : POST /coach/analyze-session (proxy Mistral, JWT)
-    deps.py            # Dépendances FastAPI (get_current_user)
-    oauth_utils.py     # Code partagé OAuth (get_or_create_user, token response)
-  core/
-    config.py          # Settings Pydantic (BaseSettings + .env) — inclut la config Mistral
-    security.py        # Création/vérification JWT (callback + access)
-    logging.py         # Logs JSON structurés + ContextVar request_id (NT-053)
-    oauth_config.py    # Constantes OAuth (endpoints, scopes, TTL) en Final
-  models/
-    user.py            # User(id, email, provider, is_active, created_at + profil)
-    refresh_token.py   # RefreshToken(hash SHA-256, famille de rotation) — NT-048
-  schemas/
-    auth.py            # TokenResponse, UserPublic
-    coach.py           # SessionIn/SeriesIn, AnalyzeSessionRequest/Response
-  services/
-    database.py         # Engine (SQLite dev/tests, Postgres prod — NT-071), init_db(), get_session()
-    oauth_state.py     # OAuthStateManager (state CSRF, TTL, usage unique)
-    mistral_client.py  # Appel HTTP Mistral (timeout, mapping d'erreurs)
-    prompt_builder.py  # Assemble le prompt à partir de SessionIn + template YAML
-    rate_limiter.py    # Rate limiting en mémoire (fenêtre glissante par user)
-    refresh_tokens.py  # Émission/rotation/révocation des refresh tokens (NT-048)
-  prompts/
-    coach_neutre.yaml  # Template de prompt (persona « neutre »)
-    coach_cool.yaml    # Template de prompt (persona « cool », NT-032)
-tests/
-  conftest.py          # Fixtures partagées (client ASGI, reset_db, mocks providers)
-  test_auth.py         # Tests OAuth / users
-  test_auth_google_nonce.py  # Nonce OIDC Google (NT-066)
-  test_oauth_flows.py  # Flows OAuth complets mockés Google/Facebook (NT-054)
-  test_cors.py         # CORS par environnement (NT-065)
-  test_coach.py        # Tests endpoint coach
-docs/
-  README.md             # index et règles de maintenance
-  tech/                 # architecture, PostgreSQL, setup Render
-  guides/               # quickstart et administration read-only
-  releases/             # notes de version synthétiques
-```
+- Direction des dépendances : `api → core/services`; `models` et `schemas` sont
+  des feuilles.
+- Les handlers valident et orchestrent ; la logique métier, les prompts et les
+  appels externes vivent dans `services/`.
+- Toute configuration passe par `core/config.py` et les variables
+  d'environnement.
+- Les sessions DB sont injectées par `Depends(get_session)` et l'utilisateur
+  courant par `Depends(get_current_user)`.
 
-### Règles d'architecture
-- **Direction des dépendances** : `api/ → core/` et `api/ → services/`, jamais l'inverse. `models/` et `schemas/` sont des feuilles.
-- **Un router par provider OAuth** ; le commun va dans `oauth_utils.py`.
-- **Coach** : le endpoint (`api/coach.py`) orchestre, la logique vit dans `services/` (`prompt_builder`, `mistral_client`, `rate_limiter`). Ne pas mettre d'appel réseau ou d'assemblage de prompt dans la couche `api/`.
-- **Configuration centralisée** : toute valeur configurable passe par `core/config.py` (`Settings` + `.env`). Jamais de secret, URL ou durée en dur.
-- **Constantes OAuth** dans `core/oauth_config.py` avec `Final`.
+## Invariants de sécurité
 
-## Modèle de données
+- Authentification déléguée aux IdP : ne jamais ajouter de mot de passe local.
+- Conserver state CSRF à usage unique, nonce OIDC Google et vérification du type
+  des JWT.
+- Les refresh tokens restent opaques, hashés, rotatifs et révocables par
+  famille en cas de rejeu.
+- Ne jamais exposer ni journaliser token, secret, URL DB complète, prompt
+  complet ou query string sensible.
+- Toute requête HTTP externe possède un timeout.
+- Le Coach exige un JWT et conserve son rate limiting.
+- Ne pas relâcher la politique CORS hors développement.
+- `DATABASE_URL` utilise le rôle runtime sans DDL ;
+  `DATABASE_MIGRATION_URL` est réservé aux migrations et à l'administration.
+- Alembic est l'unique source du schéma PostgreSQL ; `create_all()` reste limité
+  à SQLite.
 
-`User` (SQLModel, table) — clés : `id` (UUID), `email`, `provider`
-(`google`/`facebook`), `is_active`, `created_at`, contrainte d'unicité composite
-`(email, provider)`. **Profil** (rempli depuis l'IdP + choix utilisateur) :
-`display_name`, `display_name_custom`, `avatar_url`, `experience_level`
-(`beginner|advanced|expert`). **Toujours pas de `hashed_password`** : l'auth reste
-100 % déléguée aux IdP.
+## Code et tests
 
-## Conventions de code
+- Types sur les signatures publiques et docstrings Google style.
+- Imports standard, tiers, locaux ; nommage Python conventionnel.
+- Rester en Pydantic v1 (`Optional[T]`, `BaseSettings` depuis `pydantic`).
+- Utiliser les fixtures de `tests/conftest.py`.
+- Mocker systématiquement les IdP et Mistral ; aucun appel externe réel dans la
+  suite automatisée.
+- Toute logique ou route nouvelle reçoit un cas nominal et un cas d'erreur.
+- Aucun émoji dans le code, les réponses API, la documentation ou Git.
 
-### Style
-- Type annotations sur toutes les signatures publiques.
-- Docstrings en anglais (Google style) sur fonctions/classes publiques.
-- Imports groupés : stdlib → third-party → local (`..core`, `..services`).
-- **Pydantic v1** : `Optional[str]` (pas `str | None`), `BaseSettings` importé depuis `pydantic` (pas `pydantic-settings`).
-- f-strings pour le formatage.
-- **Aucun émoji** : ni dans le code (commentaires, docstrings, messages de log, chaînes retournées à l'API), ni dans la documentation (`*.md`, `AGENTS.md` inclus), ni dans les messages de commit/PR. Ce dépôt est de la documentation technique, pas un post LinkedIn — texte brut uniquement.
+## Validation
 
-### Nommage
-- `snake_case` (fonctions/variables), `PascalCase` (classes), `UPPER_SNAKE_CASE` + `Final` (constantes), `snake_case.py` (fichiers).
-- Préfixes de router : `/auth/{provider}` (OAuth), `/users` (profil), `/coach` (IA).
-- Tags FastAPI : `auth-google`, `auth-facebook`, `auth-token`, `users`, `coach`.
+Pendant le développement, exécuter les tests ciblés. À la fin, lancer une seule
+fois `pytest`. Ne pas répéter la suite complète sans modification du code. Les
+tests PostgreSQL restent conditionnés par `NEXTARGET_TEST_POSTGRES_URL` comme
+décrit dans la documentation technique.
 
-### Patterns établis
-- **Settings** : singleton via `@lru_cache` dans `get_settings()`.
-- **DB session** : injectée via `Depends(get_session)` (generator with/yield).
-- **Auth courante** : `Depends(get_current_user)` (décode le JWT, charge le `User`).
-- **Provider OAuth** : vérifier la config (`assert_provider_configured()`) en début de handler.
-- **State CSRF** : `create_state()` puis `verify_and_consume()` (usage unique).
-- **Tokens JWT** : deux types — `callback` (10 min, redirect mobile) et `access` (60 min, API). Toujours vérifier `payload["type"]`.
-- **Refresh tokens (NT-048)** : opaques (pas des JWT), 30 j, **hash SHA-256 seul persisté**. Rotation à chaque `/auth/token/refresh` (usage unique) ; rejeu d'un token consommé = signal de compromission → révocation de toute la famille. `/auth/token/revoke` = logout (204 idempotent, pas d'oracle d'existence). Ne jamais logguer un refresh token.
-- **Redirect mobile** : Google redirige un callback JWT court dans la query (`nextarget://callback?token=...`), ensuite échangé via `/auth/token/exchange`. Facebook conserve son contrat historique : access JWT directement dans le fragment (`nextarget://callback#access_token=...`), sans échange ni refresh token.
-- **Coach** : dans le handler, ordre = `rate_limiter.allow(user.id)` → `build_prompt(...)` (422 si variante inconnue) → `mistral_client.fetch_analysis(...)` (mapping d'erreurs) → réponse typée.
-- **Base de données (NT-071)** : `DATABASE_URL` (connexion poolée, rôle applicatif à privilèges minimaux) pour le runtime ; `DATABASE_MIGRATION_URL` (connexion directe, rôle propriétaire) réservée à Alembic et aux opérations d'administration (`pg_dump`). Alembic (`alembic/versions/`) est la seule source de vérité du schéma de production — `SQLModel.metadata.create_all()` (`init_db()`) ne s'exécute que si `DATABASE_URL` est du SQLite (dev/tests). Les migrations tournent avant Uvicorn (`scripts/run_migrations.py`, appelé par `start.py`) ; un échec bloque le démarrage. Détails complets (bascule, sauvegarde, restauration, rollback) : [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md).
+## Livraison
 
-## Logging & observabilité (NT-053)
-
-- Logger applicatif : `get_logger("nextarget.<module>")` (`core/logging.py`) —
-  une ligne JSON par événement (ts, level, logger, message, request_id + extras).
-- **Corrélation** : middleware `request_correlation` (main.py) — `X-Request-ID`
-  entrant honoré sinon généré, propagé via ContextVar et renvoyé en header ;
-  une ligne `request` par requête (method, path, status, duration_ms).
-- **Ne jamais logguer** : tokens (JWT/refresh), clé Mistral, prompt complet,
-  query strings (peuvent contenir codes/state OAuth).
-- Niveau via `LOG_LEVEL` (défaut INFO). Pas d'OpenTelemetry : hors périmètre
-  single-instance actuel, le request-id suffit pour corréler.
-
-## Sécurité — Règles non négociables
-
-Critiques. Ne jamais introduire de régression.
-
-1. **Aucun mot de passe** : backend OAuth-only côté auth. Ne jamais ajouter d'auth locale (email/password).
-2. **State tokens usage unique** : chaque state CSRF est consommé (supprimé) après vérification.
-3. **Vérification du type de token JWT** : toujours vérifier `payload["type"]` (`access`/`callback`). Un callback token ne donne jamais accès à l'API.
-4. **Vérification `id_token` Google** via la lib officielle `google-auth` (signature, audience, issuer, expiration) **+ vérification du nonce OIDC** contre celui stocké avec le state (NT-066) — ne jamais retirer ce contrôle.
-5. **Timeouts** sur toute requête HTTP externe : `OAUTH_TIMEOUT_SECONDS` (15 s) pour les IdP ; `mistral_timeout_seconds` (30 s) pour Mistral.
-6. **Secrets en variables d'environnement** uniquement (`Settings` + `.env`). Jamais dans le code. Sur Render, les secrets sont `sync: false` (définis à la main) — inclut `MISTRAL_API_KEY`.
-7. **Coach = données minimales + protégé** : l'endpoint exige un JWT (`get_current_user`). Ne jamais renvoyer au client la clé Mistral **ni le prompt complet**, et ne pas les logguer. Le client n'envoie que les données de session.
-8. **Rate limiting sur les endpoints coûteux** (appels Mistral) : conserver `coach_rate_limiter` (429 au-delà). Ne pas exposer un endpoint IA sans limite.
-9. **Pas d'info interne dans les erreurs HTTP** : pas de stack trace, nom de table ou détail d'implémentation vers le client.
-10. **CORS** : origines pilotées par l'environnement (NT-065, `Settings.cors_origins`) — `*` en dev, **aucune origine** hors dev sauf `CORS_ALLOW_ORIGINS` explicite. Ne pas relâcher ce comportement ni élargir les autres paramètres CORS.
-11. **Moindre privilège base de données (NT-071)** : le runtime (`DATABASE_URL`) utilise un rôle sans droit DDL ; seul `DATABASE_MIGRATION_URL` (Alembic, `pg_dump`) utilise le rôle propriétaire. Ne jamais logguer une URL de connexion, un hostname Neon complet ou un mot de passe — en cas d'échec de migration/connexion, ne journaliser que le type d'exception (voir `scripts/run_migrations.py`).
-
-## Tests
-
-- **Framework** : pytest + httpx `AsyncClient` + `anyio`. Config `pytest.ini` (`asyncio_mode = auto`, `pythonpath = .`, `-q`).
-- **Lancement** : `pytest` depuis la racine ; couverture : `pytest --cov=app` (CI, NT-055).
-- **Fixtures partagées** : `tests/conftest.py` — `reset_db` (autouse), `client()` (AsyncClient via `ASGITransport`, jamais le raccourci déprécié `app=`), `google_configured`/`facebook_configured`, helpers de mock HTTP (`mock_async_http_client`, `http_response`).
-- **Pattern endpoint** : `async with client() as ac:` (import depuis `tests.conftest`).
-- **OAuth** : providers **toujours mockés** (`tests/test_oauth_flows.py`, NT-054) — aucun appel réseau réel vers Google/Facebook dans les tests.
-- **Coach** : mocker `mistral_client.fetch_analysis` (ne jamais appeler la vraie API Mistral dans les tests) ; couvrir 200, 401 (non authentifié), 422 (variante inconnue), 429 (rate limit).
-- **OAuth non configuré** : les tests gèrent l'absence des env vars OAuth (assertion `"not configured"`).
-- **PostgreSQL (NT-071)** : `tests/test_migrations_postgres.py` exerce Alembic + CRUD contre un vrai PostgreSQL — **skip automatique** si `NEXTARGET_TEST_POSTGRES_URL` n'est pas défini (jamais de dépendance réseau dans la suite par défaut). `tests/test_migrations_failure.py` couvre l'échec de migration (URL injoignable) sans nécessiter de serveur Postgres. La suite SQLite reste la référence quotidienne.
-- Tout nouveau endpoint ou changement de logique → test : **cas nominal + cas d'erreur** au minimum.
-
-## Avant de committer (checklist)
-
-1. `pytest` vert.
-2. Toute nouvelle valeur configurable passée par `core/config.py` (+ `.env.example` mis à jour).
-3. Aucune régression sur les règles de sécurité ci-dessus ; aucun secret dans le diff.
-4. `CHANGELOG.md` mis à jour ; statut de l'item mis à jour exclusivement dans le
-   backlog canonique de **NexTarget-app** (aucune recopie dans ce dépôt).
-5. Aucun émoji dans le diff (code, doc, `CHANGELOG.md`, message de commit/PR).
-
-## Workflow Git (rappel gouvernance)
-
-- **Flux de branches (Git flow)** : `main` ← `dev` ← `feature/<code_nom_feature>`.
-  - **`main`** : branche de **production**, taggée à chaque **release**. Jamais de commit direct.
-  - **`dev`** : branche d'**intégration** ; reçoit les features validées.
-  - Toute branche de développement part de **`dev`** (jamais de `main`) et suit la
-    convention `type/NT-XXX-slug` (ex. `feat/NT-066-verif-nonce-google`).
-    Pour un lot multi-features, une branche `feature/<code_nom_feature>` regroupant
-    les IDs concernés est acceptée.
-- **Cycle de développement d'une (ou plusieurs) feature(s)** :
-  1. Créer la branche depuis **`dev`**.
-  2. Développer, puis ouvrir une **PR de la branche vers `dev`** (merge après revue + CI verte).
-  3. Pour livrer : ouvrir une **PR de `dev` vers `main`**, accompagnée d'une **release**
-     (bump de version, `CHANGELOG.md`, tag).
-- **Commit** : sujet préfixé par l'ID — `feat(coach): NT-032 persona coach cool`.
-- **PR** : titre `[NT-XXX] …`, corps listant les IDs + critères cochés.
-- Un item `both` peut donner une PR ici **et** une dans NexTarget-app, avec le **même ID**.
-- **Definition of Done** : voir `NexTarget-app/docs/backlog/README.md`.
-
-## Décisions intentionnelles (ne pas « corriger »)
-
-- **SQLite pour le dev local et les tests unitaires uniquement** (NT-071) ; la production utilise PostgreSQL Neon via Alembic — ne pas réintroduire `SQLModel.metadata.create_all()` comme source de vérité du schéma de production.
-- **State OAuth ET rate limiter en mémoire** (dict/deque in-process) : suffisant en single-instance. NT-071 corrige la persistance relationnelle (utilisateurs, refresh tokens) mais ne rend pas ces composants multi-instance ; Redis resterait nécessaire pour ça (hors périmètre).
-- **Pydantic v1** (`pydantic==1.10.x`, `BaseSettings` dans `pydantic`).
-- **Lifespan FastAPI** : `init_db()` s'exécute au démarrage via le gestionnaire
-  `lifespan` de `app/main.py`.
-
-## Commandes de référence
-
-```bash
-pip install -r requirements.txt              # dépendances
-uvicorn app.main:app --reload --port 8000    # serveur (dev)
-pytest                                        # tests
-curl http://localhost:8000/health            # health check
-# Doc interactive : http://localhost:8000/docs
-
-# Migrations (NT-071) — DATABASE_MIGRATION_URL doit pointer vers Postgres
-# (aucun effet en local avec le défaut SQLite, non versionné par Alembic) :
-alembic upgrade head                          # applique les migrations
-alembic revision --autogenerate -m "message"  # nouvelle migration depuis les modèles
-alembic downgrade -1                          # rollback d'une révision
-```
-
-## Documentation de référence
-- [Backlog unifié](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/backlog-unifie.md) — filtrer les items de portée `server` ou `both`
-- [Descriptions des US](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/descriptions.md) — critères d'acceptation canoniques
-- [Priorités](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/priorites.md) — ordre de traitement courant
-- [Gouvernance](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/README.md) — statuts, journal et Definition of Done
-- [`docs/README.md`](docs/README.md) — index de la documentation serveur
-- [`docs/tech/architecture.md`](docs/tech/architecture.md) — flow OAuth mobile
-- [`docs/tech/postgres_neon_migration.md`](docs/tech/postgres_neon_migration.md) — bascule Postgres Neon, sauvegarde/restauration/rollback (NT-071)
-- [`docs/guides/quickstart.md`](docs/guides/quickstart.md) — démarrage rapide
-- [`CHANGELOG.md`](CHANGELOG.md) — historique des changements
+- Flux Git : `main ← dev ← type/NT-XXX-slug` ; jamais de commit direct sur
+  `main`.
+- Une PR de feature vise `dev`. Inclure `NT-XXX` dans branche, commits et PR.
+- Mettre à jour la documentation concernée et `CHANGELOG.md` lorsque requis.
+- Les statuts et critères d'US se modifient uniquement dans le backlog de
+  `NexTarget-app`.
+- Préserver les changements utilisateur et ne jamais committer de secret.
