@@ -1,0 +1,20 @@
+services:
+  nextarget-staging:
+    build: .
+    # The launcher supplies an absolute path when building from a temporary
+    # worktree. Direct Compose use falls back to this repository's local file.
+    env_file:
+      - ${NEXTARGET_STAGING_ENV_FILE:-.env.staging}
+    ports:
+      - "127.0.0.1:18000:8000"
+    volumes:
+      - nextarget-staging-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  nextarget-staging-data:

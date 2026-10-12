@@ -3,6 +3,8 @@
 ## Démarrer et exploiter
 
 - [Démarrage rapide](guides/quickstart.md) : environnement local, tests, OAuth et Coach.
+- [Staging local de recette Android](guides/staging-qa.md) : conteneur local,
+  branche distante déterministe et nettoyage après collecte des preuves.
 - [Administration read-only](guides/admin-read-only.md) : génération de l'empreinte et activation de la page utilisateurs.
 - [Déploiement Render](tech/render_setup.md) : variables, vérifications et incidents courants.
 - [PostgreSQL Neon et Alembic](tech/postgres_neon_migration.md) : migration, sauvegarde, restauration et rollback.

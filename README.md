@@ -49,6 +49,20 @@ uvicorn app.main:app --reload
 
 [Guide détaillé](docs/guides/quickstart.md).
 
+## Recette Android locale
+
+Le serveur de recette Docker est construit depuis une branche distante précise,
+dans un worktree temporaire, afin d'exclure les modifications locales :
+
+```bash
+cp .env.staging.example .env.staging
+scripts/staging_qa.sh up --branch dev
+```
+
+Voir le [guide de staging local](docs/guides/staging-qa.md) pour la
+configuration, l'exécution des tests et le nettoyage après collecte des
+preuves.
+
 ## Sécurité
 
 - Secrets **exclusivement** en variables d'environnement (`.env` local, Render en prod).
@@ -81,6 +95,7 @@ Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (br
 |---|---|
 | [docs/README.md](docs/README.md) | Index et règles de maintenance |
 | [docs/guides/quickstart.md](docs/guides/quickstart.md) | Démarrage rapide |
+| [docs/guides/staging-qa.md](docs/guides/staging-qa.md) | Recette Android locale Docker |
 | [docs/guides/admin-read-only.md](docs/guides/admin-read-only.md) | Administration read-only des utilisateurs |
 | [docs/tech/architecture.md](docs/tech/architecture.md) | Architecture et flows OAuth |
 | [docs/tech/render_setup.md](docs/tech/render_setup.md) | Déploiement Render |
