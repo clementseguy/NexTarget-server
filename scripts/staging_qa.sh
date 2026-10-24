@@ -9,12 +9,17 @@ usage() {
   cat <<'EOF'
 Usage:
   scripts/staging_qa.sh up [--branch <remote-branch>]
+  scripts/staging_qa.sh reset
+  scripts/staging_qa.sh fixtures
   scripts/staging_qa.sh test
   scripts/staging_qa.sh down
 
 Commands:
   up    Fetch a branch from origin, build it from a detached temporary worktree,
         and wait until the local staging service is healthy.
+  reset Recreate the isolated staging SQLite schema and its deterministic QA
+        fixtures. It never accepts a production or PostgreSQL database.
+  fixtures Upsert deterministic QA fixtures into an already-running staging service.
   test  Run pytest in the running staging container with a separate SQLite DB.
   down  Stop staging and delete its SQLite volume. Run only after collecting QA
         reports, screenshots, and logs.
@@ -40,6 +45,7 @@ require_env_file() {
 
 compose() {
   NEXTARGET_STAGING_ENV_FILE="$env_file" \
+    NEXTARGET_SOURCE_REVISION="${revision:-}" \
     docker compose \
       --project-name "$PROJECT_NAME" \
       --project-directory "$1" \
@@ -95,6 +101,16 @@ case "$command_name" in
     compose "$repo_root" exec -T \
       -e DATABASE_URL=sqlite:////tmp/nextarget-pytest.db \
       nextarget-staging pytest
+    ;;
+  reset)
+    [[ $# -eq 1 ]] || fail "reset does not accept options."
+    require_env_file
+    compose "$repo_root" exec -T nextarget-staging python -m scripts.qa_data reset
+    ;;
+  fixtures)
+    [[ $# -eq 1 ]] || fail "fixtures does not accept options."
+    require_env_file
+    compose "$repo_root" exec -T nextarget-staging python -m scripts.qa_data seed
     ;;
   down)
     [[ $# -eq 1 ]] || fail "down does not accept options."

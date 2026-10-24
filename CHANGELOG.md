@@ -8,6 +8,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 ## [Non publié]
 
 ### Ajouté
+- NT-168 : staging Docker de recette identifiable par le SHA du commit,
+  fixtures locales du catalogue Coach réinstallées après remise à zéro et
+  vérification depuis l'application DEBUG.
 - NT-156 : tables séparées pour les snapshots de sessions et leurs analyses,
   migration Alembic, UUID applicatif stable, idempotence par empreinte et
   contrat de débrief structuré avec fallback validé.

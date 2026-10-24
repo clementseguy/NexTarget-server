@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "NexTarget API"
     environment: str = "dev"
     debug: bool = True
+    source_revision: Optional[str] = Field(default=None, env="NEXTARGET_SOURCE_REVISION")
 
     # Logging (NT-053): niveau du logger applicatif JSON.
     log_level: str = Field(default="INFO", env="LOG_LEVEL")

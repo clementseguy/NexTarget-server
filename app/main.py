@@ -152,6 +152,12 @@ async def security_headers(request: Request, call_next):
 
 @app.get("/health")
 async def health():
+    if settings.environment == "staging":
+        return {
+            "status": "ok",
+            "environment": "staging",
+            "revision": settings.source_revision,
+        }
     return {"status": "ok"}
 
 
