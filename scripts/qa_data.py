@@ -5,12 +5,22 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import os
+from pathlib import Path
 
+from sqlalchemy import text
 from sqlmodel import SQLModel, Session
 
-from app.core.config import get_settings
+from app.core.config import STAGING_DATABASE_URL, get_settings
+from app.core.staging_contract import (
+    STAGING_ACTIVE_EXERCISE_ID,
+    STAGING_INACTIVE_EXERCISE_ID,
+    STAGING_SCHEMA_VERSION,
+)
 from app.models.exercise import CoachCatalogExercise
 from app.services.database import engine
+
+_database_file = Path("/data/nextarget-staging.db")
 
 
 def _require_local_staging() -> None:
@@ -18,7 +28,7 @@ def _require_local_staging() -> None:
     settings = get_settings()
     if (
         settings.environment != "staging"
-        or settings.database_url != "sqlite:////data/nextarget-staging.db"
+        or settings.database_url != STAGING_DATABASE_URL
     ):
         raise RuntimeError(
             "QA data commands require the isolated local staging SQLite database."
@@ -26,11 +36,32 @@ def _require_local_staging() -> None:
 
 
 def reset() -> None:
-    """Recreate the local staging schema and restore its deterministic fixtures."""
+    """Replace the stopped staging database and restore its QA fixtures."""
     _require_local_staging()
-    SQLModel.metadata.drop_all(engine)
+    if os.getenv("NEXTARGET_QA_MAINTENANCE") != "1":
+        raise RuntimeError("QA reset requires the offline maintenance container.")
+    engine.dispose()
+    for suffix in ("", "-wal", "-shm"):
+        _database_file.with_name(_database_file.name + suffix).unlink(missing_ok=True)
     SQLModel.metadata.create_all(engine)
     seed()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE qa_staging_state "
+                "(revision TEXT NOT NULL, schema_version INTEGER NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO qa_staging_state (revision, schema_version) "
+                "VALUES (:revision, :schema_version)"
+            ),
+            {
+                "revision": get_settings().source_revision,
+                "schema_version": STAGING_SCHEMA_VERSION,
+            },
+        )
 
 
 def seed() -> None:
@@ -38,7 +69,7 @@ def seed() -> None:
     _require_local_staging()
     fixtures = (
         CoachCatalogExercise(
-            id="qa-catalog-precision-001",
+            id=STAGING_ACTIVE_EXERCISE_ID,
             name="QA — Précision contrôlée",
             category="precision",
             type="stand",
@@ -52,7 +83,7 @@ def seed() -> None:
             consignes=["Appliquer le protocole de recette."],
         ),
         CoachCatalogExercise(
-            id="qa-catalog-inactive-001",
+            id=STAGING_INACTIVE_EXERCISE_ID,
             name="QA — Inactif",
             category="technique",
             type="home",

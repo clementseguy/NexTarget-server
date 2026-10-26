@@ -20,17 +20,20 @@ services:
       - ${NEXTARGET_STAGING_ENV_FILE:-.env.staging}
     environment:
       ENVIRONMENT: staging
+      DEBUG: "false"
+      CORS_ALLOW_ORIGINS: ""
       DATABASE_URL: sqlite:////data/nextarget-staging.db
+      DATABASE_MIGRATION_URL: sqlite:////data/nextarget-staging.db
       NEXTARGET_SOURCE_REVISION: ${NEXTARGET_SOURCE_REVISION:-unknown}
     ports:
-      - "127.0.0.1:18000:8000"
+      - "127.0.0.1:${NEXTARGET_STAGING_PORT:-18000}:8000"
     volumes:
       - nextarget-staging-data:/data
     depends_on:
       nextarget-staging-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready').read()"]
       interval: 5s
       timeout: 3s
       retries: 12
