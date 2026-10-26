@@ -61,8 +61,8 @@ exercices Coach de recette : `qa-catalog-precision-001` (actif) et
 `qa-catalog-inactive-001` (inactif). Ces données ne sont ni des comptes, ni
 des données de production, ni des fixtures publiées par une API d'administration.
 La commande refuse la remise à zéro si elle n'est pas exécutée dans son
-conteneur de maintenance hors ligne. Les commandes de staging d'un même
-projet Compose sont verrouillées pour éviter leur exécution simultanée.
+conteneur de maintenance hors ligne. Les commandes de staging de ce poste
+sont verrouillées pour éviter leur exécution simultanée.
 
 `/health` vérifie seulement que le processus répond. `/ready` renvoie 200
 uniquement si la base est accessible, marquée avec le SHA et la version de

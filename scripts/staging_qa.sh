@@ -42,9 +42,21 @@ if ! [[ "$STAGING_PORT" =~ ^[1-9][0-9]{3,4}$ ]] \
   fail "Invalid local staging port."
 fi
 if [[ "${NEXTARGET_STAGING_LOCKED:-}" != "1" ]]; then
-  exec python3 "$repo_root/scripts/staging_lock.py" \
-    "$PROJECT_NAME" "$repo_root/scripts/staging_qa.sh" "$@"
+  [[ $# -le 3 ]] || fail "Too many staging arguments."
+  export NEXTARGET_STAGING_LOCK_ARGC="$#"
+  export NEXTARGET_STAGING_LOCK_ARG1="${1:-}"
+  export NEXTARGET_STAGING_LOCK_ARG2="${2:-}"
+  export NEXTARGET_STAGING_LOCK_ARG3="${3:-}"
+  exec python3 "$repo_root/scripts/staging_lock.py"
 fi
+case "${NEXTARGET_STAGING_LOCK_ARGC:-}" in
+  0) set -- ;;
+  1) set -- "$NEXTARGET_STAGING_LOCK_ARG1" ;;
+  2) set -- "$NEXTARGET_STAGING_LOCK_ARG1" "$NEXTARGET_STAGING_LOCK_ARG2" ;;
+  3) set -- "$NEXTARGET_STAGING_LOCK_ARG1" "$NEXTARGET_STAGING_LOCK_ARG2" \
+          "$NEXTARGET_STAGING_LOCK_ARG3" ;;
+  *) fail "Invalid locked staging arguments." ;;
+esac
 
 require_env_file() {
   [[ -f "$env_file" ]] || fail "Missing $env_file. Copy .env.staging.example first."
