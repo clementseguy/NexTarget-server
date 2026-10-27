@@ -1,12 +1,18 @@
+import re
 from functools import lru_cache
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import BaseSettings, Field, root_validator
+
+STAGING_DATABASE_URL = "sqlite:////data/nextarget-staging.db"
+STAGING_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+
 
 class Settings(BaseSettings):
     app_name: str = "NexTarget API"
     environment: str = "dev"
     debug: bool = True
+    source_revision: Optional[str] = Field(default=None, env="NEXTARGET_SOURCE_REVISION")
 
     # Logging (NT-053): niveau du logger applicatif JSON.
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
@@ -64,9 +70,31 @@ class Settings(BaseSettings):
     facebook_client_secret: Optional[str] = Field(default=None, env="FACEBOOK_CLIENT_SECRET")
     facebook_redirect_uri: Optional[str] = Field(default=None, env="FACEBOOK_REDIRECT_URI")
 
+    @root_validator
+    def validate_local_staging(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Refuse an unsafe runtime before it can open a staging database."""
+        if values.get("environment") != "staging":
+            return values
+        if values.get("database_url") != STAGING_DATABASE_URL:
+            raise ValueError("Invalid local staging configuration: database_url")
+        if values.get("database_migration_url") != STAGING_DATABASE_URL:
+            raise ValueError("Invalid local staging configuration: migration database")
+        if values.get("debug") is not False:
+            raise ValueError("Invalid local staging configuration: debug")
+        if values.get("cors_allow_origins") not in (None, ""):
+            raise ValueError("Invalid local staging configuration: CORS origins")
+        revision = values.get("source_revision") or ""
+        if not STAGING_REVISION_PATTERN.fullmatch(revision):
+            raise ValueError("Invalid local staging configuration: source revision")
+        secret = values.get("jwt_secret_key") or ""
+        if len(secret) < 32 or secret.startswith("replace-with-"):
+            raise ValueError("Invalid local staging configuration: JWT secret")
+        return values
+
     class Config:
         env_file = ".env"
         case_sensitive = False
+
 
 @lru_cache
 def get_settings() -> Settings:

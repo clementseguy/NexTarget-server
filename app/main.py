@@ -7,14 +7,15 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .core.config import get_settings
 from .core.logging import get_logger, request_id_var, setup_logging
-from .services.database import init_db
+from .services.database import engine, init_db
+from .services.staging_readiness import is_staging_ready
 from .api import admin, auth_google, auth_facebook, auth_token, coach, exercises, users
 
 settings = get_settings()
@@ -152,7 +153,30 @@ async def security_headers(request: Request, call_next):
 
 @app.get("/health")
 async def health():
+    if settings.environment == "staging":
+        return {
+            "status": "ok",
+            "environment": "staging",
+            "revision": settings.source_revision,
+        }
     return {"status": "ok"}
+
+
+@app.get("/ready", include_in_schema=False)
+def ready():
+    """Report readiness only after the local staging reset has completed."""
+    if settings.environment != "staging":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if not is_staging_ready(engine, settings.source_revision or ""):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Staging database is not ready",
+        )
+    return {
+        "status": "ready",
+        "environment": "staging",
+        "revision": settings.source_revision,
+    }
 
 
 def _is_public_production(request: Request) -> bool:
