@@ -56,7 +56,7 @@ dans un worktree temporaire, afin d'exclure les modifications locales :
 
 ```bash
 cp .env.staging.example .env.staging
-scripts/staging_qa.sh up --branch dev
+scripts/staging_qa.sh up --branch staging
 ```
 
 Voir le [guide de staging local](docs/guides/staging-qa.md) pour la
@@ -82,6 +82,14 @@ pytest --cov=app           # couverture (~80 %)
 ```
 
 CI GitHub Actions sur chaque push/PR : pytest + couverture (Python 3.11).
+
+## Contribution et livraison
+
+Créer `feature/NT-XXX-slug` ou `fix/NT-XXX-slug` depuis `dev`, puis fusionner
+par PR dans `dev` pour les tests d'intégration. Fusionner ensuite `dev` dans
+`staging` pour la recette, puis `staging` dans `main` pour la release. Les
+changements de maintenance sans US partent aussi de `dev` sur une branche
+`chore/slug-court`.
 
 ## Stack & déploiement
 
