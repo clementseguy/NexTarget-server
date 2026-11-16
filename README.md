@@ -16,7 +16,11 @@
 Deux responsabilités, volontairement rien de plus :
 
 1. **Authentification OAuth** déléguée à 100 % aux Identity Providers (Google, Facebook) — aucun mot de passe stocké. JWT courts (callback 10 min / access 60 min) + **refresh tokens avec rotation** et détection de rejeu.
-2. **Proxy Coach IA** : `POST /coach/analyze-session` appelle Mistral côté serveur — la clé API et le prompt **ne transitent jamais par le client**. Multi-personas (`coach_neutre`, `coach_cool`), protégé par JWT et rate-limité.
+2. **Coach de session** : `POST /coach/analyze-session` persiste à la demande la
+   session identifiée par UUID, déduplique les analyses inchangées et appelle
+   Mistral côté serveur pour un débrief structuré. La clé et le prompt ne
+   transitent jamais par le client. Les variantes existantes
+   (`coach_neutre`, `coach_cool`) restent protégées par JWT et rate-limitées.
 
 ## API
 
@@ -30,20 +34,34 @@ Deux responsabilités, volontairement rien de plus :
 | `POST /auth/token/refresh` | Rotation du refresh token (usage unique, rejeu ⇒ révocation de famille) |
 | `POST /auth/token/revoke` | Révocation (logout), 204 idempotent |
 | `GET /users/me` · `PATCH /users/me/profile` | Profil utilisateur (JWT) |
-| `POST /coach/analyze-session` | Analyse coach IA (JWT + rate limit 10/5 min) |
+| `POST /coach/analyze-session` | Débrief structuré et idempotent d'une session (JWT + rate limit 10/5 min) |
 | `GET /app/admin/users` | Page HTML read-only des utilisateurs (hors API REST, HTTP Basic sur HTTPS) |
 
-Swagger : `http://localhost:8000/docs` · Spec : [docs/nextarget-api-v0.1.0.yaml](docs/nextarget-api-v0.1.0.yaml)
+Swagger : `http://localhost:8000/docs` · OpenAPI courant : `http://localhost:8000/openapi.json`
 
 ## Démarrage rapide
 
 ```bash
-pip install -r requirements.txt
+pip install --only-binary=:all: --require-hashes -r requirements.lock
 cp .env.example .env       # renseigner JWT_SECRET_KEY, Google OAuth, MISTRAL_API_KEY
 uvicorn app.main:app --reload
 ```
 
-📖 [Guide détaillé](docs/guides/quickstart.md) — flow OAuth testable en 5 minutes.
+[Guide détaillé](docs/guides/quickstart.md).
+
+## Recette Android locale
+
+Le serveur de recette Docker est construit depuis une branche distante précise,
+dans un worktree temporaire, afin d'exclure les modifications locales :
+
+```bash
+cp .env.staging.example .env.staging
+scripts/staging_qa.sh up --branch staging
+```
+
+Voir le [guide de staging local](docs/guides/staging-qa.md) pour la
+configuration, l'exécution des tests et le nettoyage après collecte des
+preuves.
 
 ## Sécurité
 
@@ -54,7 +72,7 @@ uvicorn app.main:app --reload
 - CORS piloté par l'environnement : `*` en dev, **aucune origine** en prod sauf configuration explicite.
 - Logs JSON structurés + corrélation `X-Request-ID` — jamais de token, clé ou prompt dans les logs.
 
-Détails : [SECURITY_ANALYSIS.md](docs/reviews/SECURITY_ANALYSIS.md) · règles non négociables dans [AGENTS.md](AGENTS.md).
+Architecture et protections : [docs/tech/architecture.md](docs/tech/architecture.md) · règles non négociables dans [AGENTS.md](AGENTS.md).
 
 ## Tests & CI
 
@@ -65,9 +83,17 @@ pytest --cov=app           # couverture (~80 %)
 
 CI GitHub Actions sur chaque push/PR : pytest + couverture (Python 3.11).
 
+## Contribution et livraison
+
+Créer `feature/NT-XXX-slug` ou `fix/NT-XXX-slug` depuis `dev`, puis fusionner
+par PR dans `dev` pour les tests d'intégration. Fusionner ensuite `dev` dans
+`staging` pour la recette, puis `staging` dans `main` pour la release. Les
+changements de maintenance sans US partent aussi de `dev` sur une branche
+`chore/slug-court`.
+
 ## Stack & déploiement
 
-Python 3.11 · FastAPI · SQLModel · SQLite · PyJWT · httpx · Pydantic v1
+Python 3.11 · FastAPI · SQLModel · PostgreSQL en production · SQLite en local/tests · PyJWT · httpx · Pydantic v1
 
 Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (branche `main`) — voir [docs/tech/render_setup.md](docs/tech/render_setup.md).
 
@@ -75,12 +101,18 @@ Déploiement [Render.com](https://render.com) via [render.yaml](render.yaml) (br
 
 | Document | Contenu |
 |---|---|
+| [docs/README.md](docs/README.md) | Index et règles de maintenance |
 | [docs/guides/quickstart.md](docs/guides/quickstart.md) | Démarrage rapide |
+| [docs/guides/staging-qa.md](docs/guides/staging-qa.md) | Recette Android locale Docker |
 | [docs/guides/admin-read-only.md](docs/guides/admin-read-only.md) | Administration read-only des utilisateurs |
 | [docs/tech/architecture.md](docs/tech/architecture.md) | Architecture et flows OAuth |
 | [docs/tech/render_setup.md](docs/tech/render_setup.md) | Déploiement Render |
-| [docs/reviews/SECURITY_ANALYSIS.md](docs/reviews/SECURITY_ANALYSIS.md) | Analyse de sécurité |
-| [Vue serveur du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/vue-serveur.md) | Vue canonique stable maintenue dans NexTarget-app ([pointeur local](docs/specs/vue-serveur.md)) |
+| [Backlog unifié](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/backlog-unifie.md) | Inventaire et statut ; filtrer les portées `server` et `both` |
+| [Descriptions des US](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/descriptions.md) | Définition fonctionnelle et critères d'acceptation |
+| [Priorités](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/priorites.md) | Ordre de traitement courant |
+| [Journal](https://github.com/clementseguy/NexTarget-app/tree/main/docs/backlog/journal) | Décisions et livraisons significatives |
+| [Archives](https://github.com/clementseguy/NexTarget-app/tree/main/docs/backlog/archive) | US archivées par année d'archivage |
+| [Gouvernance du backlog](https://github.com/clementseguy/NexTarget-app/blob/main/docs/backlog/README.md) | Statuts, journal et Definition of Done |
 | [docs/releases/](docs/releases/) · [CHANGELOG.md](CHANGELOG.md) | Notes de version et historique |
 
 ---

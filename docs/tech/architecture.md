@@ -1,395 +1,120 @@
-# Architecture OAuth2 Mobile Flow - Vue d'ensemble
+# Architecture du serveur
 
-## 🏗️ Architecture en couches
+NexTarget-server porte l'authentification sociale, le profil distant et le proxy Coach IA de l'app Flutter. Il sert aussi une landing page publique et une page d'administration en lecture seule.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         MOBILE APP                              │
-│  (iOS / Android / Flutter)                                      │
-│                                                                  │
-│  - Intercepte custom scheme: nextarget://callback?token=JWT    │
-│  - Stocke access_token de manière sécurisée                    │
-│  - Envoie Bearer token dans headers HTTP                       │
-└─────────────────────────────────────────────────────────────────┘
-                              ▲
-                              │ HTTP/HTTPS
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    BACKEND API (FastAPI)                        │
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────┐   │
-│  │                    API LAYER                            │   │
-│  │                                                          │   │
-│  │  /auth/google/login    (GET)  → Initie OAuth          │   │
-│  │  /auth/google/callback (GET)  → Callback OAuth        │   │
-│  │  /auth/token/exchange  (POST) → Échange tokens        │   │
-│  │  /users/me            (GET)  → Profil user (Bearer)   │   │
-│  └────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-│  ┌────────────────────────────────────────────────────────┐   │
-│  │                  SECURITY LAYER                         │   │
-│  │                                                          │   │
-│  │  create_callback_token()  → JWT 10 min                │   │
-│  │  create_access_token()    → JWT 60 min                │   │
-│  │  verify_callback_token()  → Validation stricte        │   │
-│  │  decode_token()           → Décodage JWT              │   │
-│  └────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-│  ┌────────────────────────────────────────────────────────┐   │
-│  │                  SERVICE LAYER                          │   │
-│  │                                                          │   │
-│  │  OAuthStateManager  → CSRF state tokens (TTL 10 min)  │   │
-│  │  Database          → SQLite (dev/tests) / PostgreSQL Neon (prod) │   │
-│  │  OAuth Utils       → get_or_create_user()             │   │
-│  └────────────────────────────────────────────────────────┘   │
-│                              │                                  │
-│  ┌────────────────────────────────────────────────────────┐   │
-│  │                    DATA LAYER                           │   │
-│  │                                                          │   │
-│  │  User Model:                                           │   │
-│  │    - id (UUID)                                         │   │
-│  │    - email                                             │   │
-│  │    - provider (google/facebook)                        │   │
-│  │    - is_active                                         │   │
-│  │    - created_at                                        │   │
-│  └────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                              ▲
-                              │ HTTPS
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    IDENTITY PROVIDERS                           │
-│                                                                  │
-│  Google OAuth 2.0    →  /o/oauth2/v2/auth                      │
-│                      →  /oauth2/token                           │
-│                                                                  │
-│  Facebook OAuth      →  /v18.0/dialog/oauth                    │
-│                      →  /v18.0/oauth/access_token              │
-│                                                                  │
-│  Apple Sign In       →  (à venir)                              │
-└─────────────────────────────────────────────────────────────────┘
-```
+## Composants
 
-## 🔄 Flow de données complet
+| Couche | Responsabilité |
+|---|---|
+| `app/api/` | Validation HTTP et orchestration des routes OAuth, tokens, utilisateurs, Coach, exercices et administration |
+| `app/core/` | Configuration, JWT, constantes OAuth et logs structurés |
+| `app/services/` | Base de données, state OAuth, refresh tokens, prompt, Mistral, rate limiting et auth admin |
+| `app/models/` | Tables SQLModel `User`, `RefreshToken`, catalogue, sessions Coach et analyses ; contrat commun `Exercise` |
+| `app/schemas/` | Contrats Pydantic des utilisateurs, du Coach et d'Exercise |
+| `alembic/versions/` | Source de vérité du schéma PostgreSQL de production |
 
-### 1. Initiation (Mobile → Backend)
+Les couches `core`, `services`, `models` et `schemas` ne dépendent pas des handlers HTTP. Pour Coach, la construction du prompt et l'appel réseau à Mistral sont délégués aux services. Les callbacks OAuth font actuellement exception : les routes Google et Facebook réalisent directement les échanges HTTP avec leur fournisseur.
 
-```
-Mobile App                                    Backend
-    │                                            │
-    │  GET /auth/google/login                   │
-    │─────────────────────────────────────────→ │
-    │                                            │
-    │                                       [Create State]
-    │                                       [Generate nonce]
-    │                                       [Build auth_url]
-    │                                            │
-    │  ← JSON                                    │
-    │    {                                       │
-    │      "auth_url": "https://...",           │
-    │      "state": "random-token"              │
-    │    }                                       │
-    │←─────────────────────────────────────────│
-```
+Le modèle `Exercise` partagé reprend les champs et noms JSON de l'app, dont la
+provenance contrôlée `personal` ou `coach_catalog`. La table
+`coach_catalog_exercise` accepte uniquement cette seconde provenance et ajoute
+le seul état technique `is_active`, vrai par défaut. Elle reste vide tant
+qu'aucun contenu validé n'est chargé hors de l'API cliente.
 
-### 2. Authentification (Mobile → Google → Backend)
+## Routes actives
 
-```
-Mobile App              Google              Backend
-    │                     │                    │
-    │  Open WebView      │                    │
-    │───────────────────→│                    │
-    │                     │                    │
-    │  User Login        │                    │
-    │←──────────────────→│                    │
-    │                     │                    │
-    │  Redirect with code│                    │
-    │────────────────────┼───────────────────→│
-    │                     │                    │
-    │                     │  Exchange code     │
-    │                     │←───────────────────│
-    │                     │                    │
-    │                     │  Return id_token   │
-    │                     │────────────────────→
-    │                     │                    │
-    │                     │              [Verify ID token]
-    │                     │              [Get/Create User]
-    │                     │              [Create callback JWT]
-    │                     │                    │
-    │  302 Redirect                            │
-    │  nextarget://callback?token=SHORT_JWT    │
-    │←─────────────────────────────────────────│
-```
+| Route | Accès | Rôle |
+|---|---|---|
+| `GET /health` | public | état du processus |
+| `GET /auth/google/login` | public | crée state et nonce, renvoie l'URL Google |
+| `GET /auth/google/callback` | Google | valide le callback et redirige vers l'app |
+| `GET /auth/facebook/start` | public | crée le flow Facebook, non câblé dans l'app |
+| `GET /auth/facebook/callback` | Facebook | valide le callback et redirige vers l'app |
+| `POST /auth/token/exchange` | callback JWT | émet access token et refresh token |
+| `POST /auth/token/refresh` | refresh token | rotation à usage unique de la paire |
+| `POST /auth/token/revoke` | refresh token | révoque la famille, réponse 204 idempotente |
+| `GET /users/me` | Bearer JWT | profil courant |
+| `PATCH /users/me/profile` | Bearer JWT | nom affiché et/ou niveau d'expérience |
+| `POST /coach/analyze-session` | Bearer JWT | persistance à la demande et débrief structuré d'une session détaillée identifiée par UUID |
+| `GET /exercises/{exercise_id}` | public | lecture ciblée d'un exercice Coach actif ; aucun parcours ni mutation |
+| `GET /app/admin/users` | HTTP Basic | consultation read-only des utilisateurs |
+| `GET /` | public | landing page statique |
 
-### 3. Échange de tokens (Mobile → Backend)
+Le contrat OpenAPI courant est généré par FastAPI sur `/openapi.json` et présenté sur `/docs`. Aucun snapshot YAML n'est maintenu, afin d'éviter une divergence avec les routes.
 
-```
-Mobile App                                    Backend
-    │                                            │
-    │  [Intercept custom scheme]                │
-    │  [Extract token from URL]                 │
-    │                                            │
-    │  POST /auth/token/exchange                │
-    │  Body: {"callback_token": "..."}          │
-    │─────────────────────────────────────────→ │
-    │                                            │
-    │                                       [Verify callback token]
-    │                                       [Check token type]
-    │                                       [Check expiration]
-    │                                       [Load user from DB]
-    │                                       [Create access token]
-    │                                            │
-    │  ← JSON                                    │
-    │    {                                       │
-    │      "access_token": "...",               │
-    │      "token_type": "bearer",              │
-    │      "expires_in": 3600,                  │
-    │      "email": "user@gmail.com",           │
-    │      "provider": "google",                │
-    │      "user_id": "uuid"                    │
-    │    }                                       │
-    │←─────────────────────────────────────────│
-    │                                            │
-    │  [Store access_token securely]            │
-```
+## Authentification et jetons
 
-### 4. API calls (Mobile → Backend)
+Les callbacks OAuth utilisent actuellement deux contrats distincts :
 
-```
-Mobile App                                    Backend
-    │                                            │
-    │  GET /users/me                            │
-    │  Header: Authorization: Bearer <token>    │
-    │─────────────────────────────────────────→ │
-    │                                            │
-    │                                       [Decode JWT]
-    │                                       [Extract user_id]
-    │                                       [Load user from DB]
-    │                                            │
-    │  ← JSON                                    │
-    │    {                                       │
-    │      "id": "uuid",                        │
-    │      "email": "user@gmail.com",           │
-    │      "is_active": true,                   │
-    │      "provider": "google"                 │
-    │    }                                       │
-    │←─────────────────────────────────────────│
-```
+- Google redirige vers `nextarget://callback?token=<callback-jwt>`. Ce JWT expire par défaut après 10 minutes et ne donne pas accès aux API. `POST /auth/token/exchange` vérifie son type et l'utilisateur, puis émet un access token de 60 minutes et un refresh token opaque de 30 jours.
+- Facebook redirige vers `nextarget://callback#access_token=<access-jwt>&token_type=bearer&email=...&provider=facebook`. L'access token est utilisable directement sur les API ; ce flux ne passe pas par `/auth/token/exchange` et n'émet pas de refresh token. Il est exposé côté serveur mais n'est pas câblé dans l'app Flutter.
 
-## 🔒 Sécurité en détail
+Seul le hash SHA-256 du refresh token est persisté. Chaque refresh tourne le jeton ; rejouer un jeton consommé révoque toute sa famille. La révocation est idempotente et ne révèle pas l'existence du jeton.
 
-### State Token (CSRF Protection)
+Le state OAuth est consommé une seule fois. Pour Google, le `id_token` est vérifié par `google-auth` et son nonce doit correspondre à celui du state.
 
-```
-┌─────────────────────────────────────────────────────┐
-│              STATE TOKEN LIFECYCLE                  │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  1. CREATE  → random 24 bytes + nonce + TTL       │
-│              stored in memory (or Redis)           │
-│                                                     │
-│  2. VERIFY  → check exists + not expired           │
-│                                                     │
-│  3. CONSUME → delete after use (one-time)          │
-│                                                     │
-│  4. EXPIRE  → auto-cleanup after 10 minutes        │
-│                                                     │
-└─────────────────────────────────────────────────────┘
-```
+## Coach IA
 
-### JWT Tokens
+Le handler valide la variante, résout l'exercice éventuel, crée ou met à jour le
+snapshot reçu, recherche une analyse identique, puis applique la limite par
+utilisateur avant un éventuel appel Mistral avec timeout. Le client n'envoie ni
+clé ni prompt complet. Les variantes livrées restent `coach_neutre` et
+`coach_cool` et utilisent chacune un seul prompt.
 
-```
-┌───────────────────────────────────────────────────────────────┐
-│                    CALLBACK TOKEN                             │
-├───────────────────────────────────────────────────────────────┤
-│  Type:      callback                                          │
-│  TTL:       10 minutes                                        │
-│  Payload:   {sub, type, provider, email, exp}                │
-│  Usage:     OAuth redirect → nextarget://callback?token=JWT  │
-│  Exchange:  Must be exchanged immediately                     │
-└───────────────────────────────────────────────────────────────┘
+La session contient `session_id` (UUID stable partagé avec l'app), son type,
+son état réalisé, la date, l'arme, le calibre, la catégorie, toutes les séries
+et leurs marqueurs, la synthèse, la provenance et la qualification éventuelles
+de l'exercice. `experience_level` reprend la préférence de profil existante.
 
-┌───────────────────────────────────────────────────────────────┐
-│                    ACCESS TOKEN                               │
-├───────────────────────────────────────────────────────────────┤
-│  Type:      access                                            │
-│  TTL:       60 minutes                                        │
-│  Payload:   {sub, type, exp}                                 │
-│  Usage:     API calls → Authorization: Bearer <token>        │
-│  Renewal:   User must re-authenticate (or refresh token)     │
-└───────────────────────────────────────────────────────────────┘
-```
+Pour un exercice personnel, `session.personal_exercise` est un contrat transitoire
+strict : `id` (128 caractères), `name` (120), `origin` fixé à `personal`,
+`description` facultative (2 000) et au plus 20 `consignes` de 500 caractères.
+`session.exercise_execution` contient uniquement `performed` booléen facultatif,
+`protocol_followed` facultatif parmi `yes`, `partially`, `no`, et `comment`
+facultatif (1 000 caractères). L'identifiant de l'instantané doit correspondre à
+`exerciseId` et tout exercice personnel exige cet instantané. Un exercice
+`coach_catalog` est au contraire résolu parmi les
+entrées actives côté serveur et reçoit lui aussi sa qualification. Les
+commentaires de série sont limités à 1 000 caractères, la synthèse à 2 000, la
+liste à 100 séries, chaque nombre de coups à l'intervalle 1 à 1 000 et les textes
+arme/calibre à 120 caractères.
 
-### Validation Chain
+Tous les champs texte sont sérialisés dans un bloc explicitement désigné comme
+données utilisateur non fiables, avec échappement des délimiteurs ; le modèle
+reçoit l'ordre de ne suivre aucune instruction qu'ils contiendraient. Pour cet
+exercice, le Coach se limite à la session, à `performed`, à
+`protocol_followed` et aux commentaires. Une réalisation déclarée fausse est
+évaluable ; une réalisation vraie exige un suivi de protocole renseigné ; les
+autres cas sont annoncés non évaluables. Aucun critère de réussite métier n'est
+exigé.
 
-```
-Request → [Extract Token] → [Decode JWT] 
-             │
-             ├─→ [Check Signature] ❌ Invalid → 401
-             │
-             ├─→ [Check Expiration] ❌ Expired → 401
-             │
-             ├─→ [Check Token Type] ❌ Wrong type → 401
-             │
-             ├─→ [Load User from DB] ❌ Not found → 404
-             │
-             └─→ ✅ Valid → Continue
-```
+`coach_session` conserve le dernier snapshot complet par utilisateur et UUID.
+`coach_session_analysis` conserve séparément chaque résultat structuré. Une
+empreinte SHA-256 canonique, la version de contrat et la variante de prompt
+forment la clé d'idempotence : un rejeu inchangé réutilise l'analyse avant le
+rate limit et sans appel Mistral. Une session modifiée met à jour son snapshot
+et peut recevoir une nouvelle analyse. Si Mistral échoue, le snapshot reste
+persisté ; si sa réponse ne respecte pas le JSON attendu, un débrief factuel de
+secours est validé et persisté.
 
-## 📦 Modules et Responsabilités
+La réponse expose `debrief`, `successes` (un à trois éléments),
+`attention_point`, `limitations`, `exercise_evaluation` facultative,
+`next_action`, les identifiants et les métadonnées. Le résultat d'exercice est
+calculé par le serveur uniquement depuis `performed` et `protocol_followed`.
+Les seules actions acceptées sont `repeat_exercise` et
+`request_progression_coach`. Le Coach de session ne crée ni ne modifie aucun
+objectif, exercice ou plan.
 
-```
-app/
-├── main.py                    → FastAPI app + CORS + routers
-│
-├── api/                       → Endpoints HTTP
-│   ├── auth_google.py        → /login, /callback
-│   ├── auth_token.py         → /token/exchange
-│   ├── oauth_utils.py        → Utilities réutilisables
-│   └── users.py              → /users/me
-│
-├── core/                      → Configuration & Security
-│   ├── config.py             → Settings (env vars)
-│   ├── security.py           → JWT creation/validation
-│   └── oauth_config.py       → OAuth endpoints/scopes
-│
-├── models/                    → ORM Models
-│   └── user.py               → User (SQLModel)
-│
-├── schemas/                   → Pydantic I/O
-│   └── auth.py               → TokenResponse, etc.
-│
-└── services/                  → Business Logic
-    ├── database.py           → DB session management
-    └── oauth_state.py        → State token manager
-```
+Le state OAuth et la limite Coach restent en mémoire et supposent une seule instance. PostgreSQL ne rend pas ces composants multi-instance.
 
-## 🔌 Extensibilité
+## Données et démarrage
 
-### Ajouter un nouveau Identity Provider
+SQLite est le défaut local et autorise `SQLModel.metadata.create_all()`. En production, PostgreSQL est obligatoire et Alembic est l'unique source du schéma. `start.py` exécute les migrations avant Uvicorn et bloque le démarrage si elles échouent.
 
-```python
-# 1. Configuration (oauth_config.py)
-APPLE_AUTH_ENDPOINT: Final[str] = "..."
-APPLE_TOKEN_ENDPOINT: Final[str] = "..."
-APPLE_SCOPES: Final[list[str]] = [...]
+`DATABASE_URL` sert au runtime avec un rôle sans DDL ; `DATABASE_MIGRATION_URL` sert aux migrations et sauvegardes avec le rôle propriétaire.
 
-# 2. Router (api/auth_apple.py)
-from ..api.oauth_utils import get_or_create_user
-from ..core.security import create_callback_token
+## Journalisation et sécurité HTTP
 
-@router.get("/login")
-def apple_auth_login():
-    # Réutiliser state manager
-    state, state_data = state_manager.create_state()
-    auth_url = build_apple_auth_url(state, state_data["nonce"])
-    return {"auth_url": auth_url, "state": state}
+Chaque requête reçoit un `X-Request-ID` et une ligne JSON avec méthode, chemin, statut et durée. Les query strings, tokens, secrets et prompts complets ne sont jamais journalisés.
 
-@router.get("/callback")
-async def apple_auth_callback(code, state):
-    # Réutiliser validation
-    stored_state = state_manager.verify_and_consume(state)
-    
-    # Adapter à l'API Apple
-    user_data = exchange_apple_code(code)
-    
-    # Réutiliser user management
-    user = get_or_create_user(session, email, provider="apple")
-    
-    # Réutiliser token creation
-    callback_token = create_callback_token(user.id, "apple", user.email)
-    
-    return RedirectResponse(f"nextarget://callback?token={callback_token}")
-
-# 3. Register router (main.py)
-from .api import auth_apple
-app.include_router(auth_apple.router)
-```
-
-**Réutilisation : ~80% du code** ✅
-
-## 📊 Métriques de qualité
-
-```
-┌────────────────────────────────────────────────────┐
-│              QUALITÉ DU CODE                       │
-├────────────────────────────────────────────────────┤
-│  Modularité          ★★★★★  Architecture en couches│
-│  Réutilisabilité     ★★★★★  OAuth utils partagés   │
-│  Maintenabilité      ★★★★★  Aucun fichier > 200L  │
-│  Testabilité         ★★★★☆  Tests unitaires +7    │
-│  Documentation       ★★★★★  1500+ lignes de doc   │
-│  Sécurité            ★★★★★  CSRF, replay, JWT     │
-│  Performance         ★★★★★  Stateless, pas de DB  │
-└────────────────────────────────────────────────────┘
-```
-
-## 🚀 Déploiement
-
-### Production (Render.com)
-
-```
-┌───────────────────────────────────────────────────┐
-│             RENDER.COM ARCHITECTURE               │
-├───────────────────────────────────────────────────┤
-│                                                   │
-│  Internet → Render Load Balancer (HTTPS)         │
-│               ↓                                   │
-│            Web Service                            │
-│              - Docker container                   │
-│              - Auto-scaling                       │
-│              - Health checks                      │
-│               ↓                                   │
-│            Environment Variables                  │
-│              - JWT_SECRET_KEY (auto)             │
-│              - GOOGLE_CLIENT_ID                   │
-│              - GOOGLE_CLIENT_SECRET               │
-│              - DATABASE_URL / DATABASE_MIGRATION_URL (Neon)│
-│               ↓                                   │
-│            FastAPI App                            │
-│              - OAuth endpoints                    │
-│              - JWT management                     │
-│               ↓                                   │
-│            PostgreSQL (Neon) — schéma géré par Alembic│
-│            SQLite réservé au dev local / tests    │
-│                                                   │
-└───────────────────────────────────────────────────┘
-```
-
-### Multi-instance (Future)
-
-```
-┌─────────────────────────────────────────────────────┐
-│        MULTI-INSTANCE ARCHITECTURE                  │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  Load Balancer                                      │
-│       │                                             │
-│       ├─→ Instance 1 (FastAPI)                     │
-│       ├─→ Instance 2 (FastAPI)                     │
-│       └─→ Instance 3 (FastAPI)                     │
-│                │                                    │
-│                ├─→ Redis (State tokens)            │
-│                └─→ PostgreSQL (Users)              │
-│                                                     │
-└─────────────────────────────────────────────────────┘
-```
-
-## 📚 Documentation disponible
-
-| Fichier | Rôle | Audience |
-|---------|------|----------|
-| `QUICKSTART.md` | Démarrage rapide | Dev |
-| `LIVRAISON.md` | Résumé de livraison | Product Owner |
-| `ARCHITECTURE.md` | Ce fichier | Tech Lead |
-| `docs/tech/OAUTH_MOBILE_FLOW.md` | Doc technique | Dev Backend |
-| `docs/tech/mobile_oauth_testing_guide.md` | Guide de test | QA/Dev |
-| `docs/tech/VALIDATION_CHECKLIST.md` | Checklist | QA |
-| `docs/nextarget-api-v0.1.0.yaml` | OpenAPI spec | Dev Frontend/Mobile |
-
----
-
-**Auteur** : GitHub Copilot (Claude Sonnet 4.5)  
-**Date** : 21 octobre 2025  
-**Version** : 0.1.0
+CORS est ouvert en développement et fermé hors développement sauf configuration explicite. La landing page reçoit une CSP restrictive ; la production ajoute HSTS. L'administration est `no-store`, `noindex`, protégée par HTTP Basic et ne propose aucune mutation.

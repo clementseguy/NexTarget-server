@@ -10,6 +10,43 @@ async def test_health_endpoint():
         assert r.status_code == 200
         assert r.json()["status"] == "ok"
 
+
+@pytest.mark.asyncio
+async def test_staging_health_exposes_running_revision(monkeypatch):
+    from app import main
+
+    monkeypatch.setattr(main.settings, "environment", "staging")
+    monkeypatch.setattr(main.settings, "source_revision", "a" * 40)
+    async with client() as ac:
+        response = await ac.get("/health")
+    assert response.json() == {
+        "status": "ok",
+        "environment": "staging",
+        "revision": "a" * 40,
+    }
+
+
+@pytest.mark.asyncio
+async def test_staging_readiness_waits_for_database_and_fixtures(monkeypatch):
+    from app import main
+
+    monkeypatch.setattr(main.settings, "environment", "staging")
+    monkeypatch.setattr(main.settings, "source_revision", "a" * 40)
+    monkeypatch.setattr(main, "is_staging_ready", lambda *_: False)
+    async with client() as ac:
+        unavailable = await ac.get("/ready")
+    assert unavailable.status_code == 503
+
+    monkeypatch.setattr(main, "is_staging_ready", lambda *_: True)
+    async with client() as ac:
+        available = await ac.get("/ready")
+    assert available.status_code == 200
+    assert available.json() == {
+        "status": "ready",
+        "environment": "staging",
+        "revision": "a" * 40,
+    }
+
 @pytest.mark.asyncio
 async def test_google_login_endpoint_returns_auth_url():
     """Test that /auth/google/login returns a valid auth URL"""

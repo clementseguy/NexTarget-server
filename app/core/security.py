@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Literal
+from typing import Optional
 import jwt
 from typing import Dict, Any
 

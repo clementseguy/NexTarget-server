@@ -5,7 +5,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
-# Make the SQLModel metadata (User, RefreshToken) the autogenerate target,
+# Make the SQLModel metadata (User, RefreshToken, CoachCatalogExercise) the
+# autogenerate target,
 # and the app's own settings/URL-normalization the source of truth for the
 # connection (NT-071): Alembic always uses DATABASE_MIGRATION_URL (direct
 # connection, owner role) when set, falling back to DATABASE_URL otherwise
@@ -14,6 +15,8 @@ from app.core.config import get_settings  # noqa: E402
 from app.services.database import _normalize_database_url  # noqa: E402
 from app.models.user import User  # noqa: E402,F401
 from app.models.refresh_token import RefreshToken  # noqa: E402,F401
+from app.models.exercise import CoachCatalogExercise  # noqa: E402,F401
+from app.models.coach import CoachSession, CoachSessionAnalysis  # noqa: E402,F401
 from sqlmodel import SQLModel  # noqa: E402
 
 # this is the Alembic Config object, which provides
@@ -75,9 +78,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

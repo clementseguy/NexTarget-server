@@ -5,6 +5,44 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [Non publié]
+
+## [0.4.0] - 2026-11-16
+
+### Ajouté
+- NT-168 : staging Docker de recette identifiable par le SHA du commit,
+  fixtures locales du catalogue Coach réinstallées après remise à zéro et
+  vérification depuis l'application DEBUG ; configuration staging locale
+  imposée au démarrage, remise à zéro hors ligne du volume SQLite, contrôle
+  `/ready` du schéma et des fixtures, et test du cycle Docker complet.
+- NT-156 : tables séparées pour les snapshots de sessions et leurs analyses,
+  migration Alembic, UUID applicatif stable, idempotence par empreinte et
+  contrat de débrief structuré avec fallback validé.
+- NT-161 : sous-contrat transitoire et borné pour l'exercice personnel et sa
+  qualification lors d'une analyse, textes isolés comme données non fiables,
+  débrief explicitement hors plan et aucune écriture dans le catalogue.
+- NT-160 : table du catalogue Coach avec état `is_active` vrai par défaut et
+  unique endpoint public en lecture ciblée `GET /exercises/{exercise_id}` ; les
+  exercices absents ou inactifs restent indistinguables et aucune API de liste
+  ou de mutation n'est exposée.
+- NT-159 : modèle Exercise non persistant et schéma JSON complet alignés sur
+  l'app, avec provenance contrôlée `personal` ou `coach_catalog` et tests de
+  contrat alignés.
+
+### Modifié
+- Sécurité : l'image Docker copie uniquement les artefacts d'exécution et
+  installe exclusivement des wheels depuis un lock transitif vérifié par
+  empreintes.
+- Maintenance : migration du hook de démarrage FastAPI vers `lifespan` et
+  sérialisation du contrat Exercise sans appel à l'alias `SQLModel.dict()`
+  déprécié.
+- NT-156 : prompt recentré sur une session terminée, résolution serveur des
+  exercices catalogue, résultat d'exercice calculé depuis les déclarations et
+  prochaines actions fermées, sans création d'objectif, d'exercice ou de plan.
+- NT-152 : le contrat de session du Coach accepte un `exerciseId` facultatif,
+  sans identifiant de prescription ; les anciens payloads sans exercice restent
+  valides.
+
 ## [0.3.0] - 2026-09-02
 
 ### Ajouté
@@ -114,7 +152,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - Checklist de validation : `docs/tech/VALIDATION_CHECKLIST.md` (200 lignes)
 - Résumé d'implémentation : `docs/tech/IMPLEMENTATION_SUMMARY.md`
 - Guide de démarrage rapide : `QUICKSTART.md`
-- Mise à jour de l'OpenAPI spec : `docs/nextarget-api-v0.1.0.yaml` (+120 lignes)
+- Mise à jour de la spécification OpenAPI statique alors utilisée (+120 lignes)
 - README principal mis à jour avec section mobile flow
 
 #### Tests
@@ -161,9 +199,10 @@ Taille max fichier   : 150 lignes (< 500 cible)
 - Validation stricte des types de tokens
 - Signature HS256 avec secret fort requis
 
-### Documentation Complète
+### Documentation
 
-Voir : `docs/tech/implementation_summary.md` pour le résumé exécutif complet.
+Ces documents historiques ont depuis été consolidés dans `docs/README.md`,
+`docs/tech/architecture.md` et `docs/guides/quickstart.md`.
 
 ## [0.0.1] - 2025-10-XX (Version initiale)
 
@@ -194,5 +233,5 @@ Voir : `docs/tech/implementation_summary.md` pour le résumé exécutif complet.
 ## Références
 
 - [Architecture OAuth Mobile](docs/tech/architecture.md)
-- [Guide de test](docs/tech/oauth_mobile_testing.md)
+- [Guide de démarrage et de test](docs/guides/quickstart.md)
 - [Guide de démarrage](docs/guides/quickstart.md)
