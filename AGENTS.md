@@ -72,9 +72,13 @@ décrit dans la documentation technique.
 
 ## Livraison
 
-- Flux Git : `main ← dev ← type/NT-XXX-slug` ; jamais de commit direct sur
-  `main`.
-- Une PR de feature vise `dev`. Inclure `NT-XXX` dans branche, commits et PR.
+- Flux Git : branche dédiée issue de `dev` (`feature/NT-XXX-slug` ou
+  `fix/NT-XXX-slug`) → `dev` (tests d'intégration) → `staging` (recette) →
+  `main` (release). La maintenance sans US utilise `chore/slug-court`.
+- Fusionner chaque étape par PR, dans cet ordre ; aucun commit direct sur
+  `dev`, `staging` ou `main`.
+- Une PR de développement vise `dev`. Inclure `NT-XXX` dans la branche, les
+  commits et la PR lorsqu'une US existe.
 - Mettre à jour la documentation concernée et `CHANGELOG.md` lorsque requis.
 - Les statuts et critères d'US se modifient uniquement dans le backlog de
   `NexTarget-app`.

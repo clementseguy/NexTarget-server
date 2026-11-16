@@ -7,7 +7,7 @@ NexTarget-server utilise Python 3.11. Depuis la racine du dépôt :
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install --only-binary=:all: --require-hashes -r requirements.lock
 cp .env.example .env
 ```
 
@@ -22,6 +22,22 @@ pytest
 ```
 
 L'API interactive et son contrat OpenAPI généré depuis le code sont disponibles sur `http://localhost:8000/docs` et `http://localhost:8000/openapi.json`. Aucun fichier OpenAPI statique n'est maintenu dans le dépôt.
+
+## Mettre à jour les dépendances
+
+`requirements.in` contient les dépendances directes. Le fichier
+`requirements.lock` verrouille l'ensemble des dépendances transitives et les
+empreintes des distributions autorisées. Après une modification de
+`requirements.in`, régénérer le lock avec Python 3.11 :
+
+```bash
+python -m pip install --only-binary=:all: pip-tools==7.7.0
+python -m piptools compile \
+  --generate-hashes \
+  --strip-extras \
+  --output-file=requirements.lock \
+  requirements.in
+```
 
 ## Activer Google OAuth en local
 

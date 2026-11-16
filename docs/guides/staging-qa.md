@@ -11,14 +11,17 @@ Sur le poste du runner :
 ```bash
 cp .env.staging.example .env.staging
 # Remplacer JWT_SECRET_KEY par une valeur locale aléatoire d'au moins 32 caractères.
-scripts/staging_qa.sh up --branch dev
+scripts/staging_qa.sh up --branch staging
 curl --fail http://127.0.0.1:18000/ready
 ```
 
-`--branch` attend le nom d'une branche distante de `origin` et vaut `dev` par
+`--branch` attend le nom d'une branche distante de `origin` et vaut `staging` par
 défaut. Le script affiche le SHA exact exécuté ; il faut le conserver avec le
 rapport de recette. Le serveur annonce ce SHA sur `/health` et `/ready`
 seulement en staging. Le script serveur nécessite Git et Docker Compose.
+
+Lancer cette recette après la fusion de `dev` dans `staging`, puis fusionner
+`staging` dans `main` pour la release lorsque la recette est validée.
 
 Pour utiliser les corrections conservées uniquement sur ce poste, créer un
 commit local puis lancer la branche locale sans accès GitHub :

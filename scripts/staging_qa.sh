@@ -4,7 +4,7 @@ set -euo pipefail
 
 readonly PROJECT_NAME="${NEXTARGET_STAGING_PROJECT:-nextarget-staging}"
 readonly STAGING_PORT="${NEXTARGET_STAGING_PORT:-18000}"
-readonly DEFAULT_BRANCH="dev"
+readonly DEFAULT_BRANCH="staging"
 
 usage() {
   cat <<'EOF'

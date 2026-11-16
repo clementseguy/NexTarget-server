@@ -30,6 +30,9 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   contrat alignés.
 
 ### Modifié
+- Sécurité : l'image Docker copie uniquement les artefacts d'exécution et
+  installe exclusivement des wheels depuis un lock transitif vérifié par
+  empreintes.
 - Maintenance : migration du hook de démarrage FastAPI vers `lifespan` et
   sérialisation du contrat Exercise sans appel à l'alias `SQLModel.dict()`
   déprécié.
