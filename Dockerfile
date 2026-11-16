@@ -13,8 +13,8 @@ RUN apt-get update \
     && useradd --uid 10001 --gid nextarget --create-home --shell /usr/sbin/nologin nextarget \
     && mkdir /data \
     && chown nextarget:nextarget /data
-COPY requirements.txt ./
-RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
+COPY requirements.lock ./
+RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements.lock
 COPY --chown=nextarget:nextarget app ./app
 COPY --chown=nextarget:nextarget alembic ./alembic
 COPY --chown=nextarget:nextarget alembic.ini start.py ./

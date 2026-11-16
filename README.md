@@ -42,7 +42,7 @@ Swagger : `http://localhost:8000/docs` · OpenAPI courant : `http://localhost:80
 ## Démarrage rapide
 
 ```bash
-pip install -r requirements.txt
+pip install --only-binary=:all: --require-hashes -r requirements.lock
 cp .env.example .env       # renseigner JWT_SECRET_KEY, Google OAuth, MISTRAL_API_KEY
 uvicorn app.main:app --reload
 ```
