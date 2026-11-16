@@ -14,7 +14,7 @@ RUN apt-get update \
     && mkdir /data \
     && chown nextarget:nextarget /data
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
 COPY --chown=nextarget:nextarget app ./app
 COPY --chown=nextarget:nextarget alembic ./alembic
 COPY --chown=nextarget:nextarget alembic.ini start.py ./
