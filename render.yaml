@@ -8,7 +8,8 @@ services:
     region: frankfurt
     plan: free
     branch: main
-    buildCommand: pip install --only-binary=:all: --require-hashes -r requirements.lock
+    buildCommand: >-
+      pip install --only-binary=:all: --require-hashes -r requirements.lock
     healthCheckPath: /health
     envVars:
       - key: JWT_SECRET_KEY

@@ -26,7 +26,9 @@ jobs:
           cache-dependency-path: requirements.lock
 
       - name: Install dependencies
-        run: pip install --only-binary=:all: --require-hashes -r requirements.lock
+        run: >-
+          pip install --only-binary=:all: --require-hashes
+          -r requirements.lock
 
       - name: Run tests with coverage
         run: pytest --cov=app --cov-report=term-missing --cov-report=xml
