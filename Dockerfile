@@ -15,11 +15,11 @@ RUN apt-get update \
     && chown nextarget:nextarget /data
 COPY requirements.lock ./
 RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements.lock
-COPY --chown=nextarget:nextarget app ./app
-COPY --chown=nextarget:nextarget alembic ./alembic
-COPY --chown=nextarget:nextarget alembic.ini start.py ./
-COPY --chown=nextarget:nextarget scripts/qa_data.py scripts/run_migrations.py ./scripts/
-RUN chown nextarget:nextarget /app
+COPY app ./app
+COPY alembic ./alembic
+COPY tests ./tests
+COPY alembic.ini pytest.ini start.py ./
+COPY scripts/qa_data.py scripts/run_migrations.py scripts/staging_lock.py scripts/staging_qa.sh ./scripts/
 USER nextarget
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
