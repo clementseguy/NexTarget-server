@@ -7,6 +7,8 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
+## [0.4.0] - 2026-11-16
+
 ### Ajouté
 - NT-168 : staging Docker de recette identifiable par le SHA du commit,
   fixtures locales du catalogue Coach réinstallées après remise à zéro et
