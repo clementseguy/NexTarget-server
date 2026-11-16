@@ -105,6 +105,13 @@ async def analyze_session(
             payload.prompt_variant,
         )
         if existing is not None:
+            upsert_session(
+                db,
+                current_user.id,
+                client_session_id,
+                snapshot,
+                snapshot_hash,
+            )
             return _response(existing, session.session_id, reused=True)
 
         if not coach_rate_limiter.allow(current_user.id):
