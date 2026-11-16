@@ -243,6 +243,44 @@ async def test_changed_session_updates_snapshot_and_creates_new_analysis():
 
 
 @pytest.mark.asyncio
+async def test_reused_historical_analysis_restores_latest_session_snapshot():
+    user = _make_user()
+    token = create_access_token(sub=user.id)
+    payload = _payload()
+    original_synthese = payload["session"]["synthese"]
+    fetch = AsyncMock(return_value=MODEL_RESPONSE)
+
+    with patch("app.api.coach.mistral_client.fetch_analysis", new=fetch):
+        async with client() as ac:
+            first = await ac.post(
+                "/coach/analyze-session",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            payload["session"]["synthese"] = "Synthèse corrigée"
+            second = await ac.post(
+                "/coach/analyze-session",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            payload["session"]["synthese"] = original_synthese
+            third = await ac.post(
+                "/coach/analyze-session",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    assert first.status_code == second.status_code == third.status_code == 200
+    assert third.json()["analysis_id"] == first.json()["analysis_id"]
+    assert third.json()["reused"] is True
+    assert fetch.await_count == 2
+    with Session(engine) as db:
+        stored = db.exec(select(CoachSession)).one()
+        assert stored.snapshot["synthese"] == original_synthese
+        assert len(db.exec(select(CoachSessionAnalysis)).all()) == 2
+
+
+@pytest.mark.asyncio
 async def test_mistral_failure_keeps_session_without_analysis():
     from app.services.mistral_client import MistralClientError
 
