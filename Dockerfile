@@ -15,7 +15,10 @@ RUN apt-get update \
     && chown nextarget:nextarget /data
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY --chown=nextarget:nextarget . ./
+COPY --chown=nextarget:nextarget app ./app
+COPY --chown=nextarget:nextarget alembic ./alembic
+COPY --chown=nextarget:nextarget alembic.ini start.py ./
+COPY --chown=nextarget:nextarget scripts/qa_data.py scripts/run_migrations.py ./scripts/
 RUN chown nextarget:nextarget /app
 USER nextarget
 EXPOSE 8000
