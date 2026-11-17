@@ -3,9 +3,9 @@ name: CI
 
 on:
   push:
-    branches: ["dev", "staging", "main", "dev-sprint-*"]
+    branches: ["integration/v0.8.1", "dev", "staging", "main", "dev-sprint-*"]
   pull_request:
-    branches: ["dev", "staging", "main"]
+    branches: ["integration/v0.8.1", "dev", "staging", "main"]
   workflow_dispatch:
 
 jobs:

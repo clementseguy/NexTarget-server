@@ -81,15 +81,18 @@ pytest                     # 65 tests, providers OAuth entièrement mockés
 pytest --cov=app           # couverture (~80 %)
 ```
 
-CI GitHub Actions sur chaque push/PR : pytest + couverture (Python 3.11).
+CI GitHub Actions sur les branches suivies et leurs PR : pytest + couverture
+(Python 3.11), y compris `integration/v0.8.1`.
 
 ## Contribution et livraison
 
-Créer `feature/NT-XXX-slug` ou `fix/NT-XXX-slug` depuis `dev`, puis fusionner
-par PR dans `dev` pour les tests d'intégration. Fusionner ensuite `dev` dans
-`staging` pour la recette, puis `staging` dans `main` pour la release. Les
-changements de maintenance sans US partent aussi de `dev` sur une branche
-`chore/slug-court`.
+Pour la v0.8.1, créer `feature/NT-XXX-slug` ou `fix/NT-XXX-slug` depuis
+`integration/v0.8.1`, puis fusionner par PR dans cette même branche. Une fois
+la version assemblée et validée, fusionner `integration/v0.8.1` dans `dev`
+par PR, puis `dev` dans `staging` pour la recette et `staging` dans `main`
+pour la release. Les changements de maintenance v0.8.1 sans US utilisent
+`chore/slug-court` avec la même base et la même cible. Pour les travaux hors
+v0.8.1, les branches partent de `dev` et leurs PR visent `dev`.
 
 ## Stack & déploiement
 
